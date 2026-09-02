@@ -7,3 +7,4 @@ Apple
    :maxdepth: 2
 
    m1
+   omarchy-silicon-release-design
