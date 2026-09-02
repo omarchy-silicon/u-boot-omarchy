@@ -6,7 +6,7 @@ Omarchy Silicon release and boot-slot design
 Status and scope
 ----------------
 
-This is the B-03/B-04 design note for ``omarchy-silicon/u-boot-omarchy``, correction round 2. It is a design-only document. It is not an implementation, a build result, a schema, a binding, a test result, a compatibility claim, a support claim, a qualification record, a release approval, or a recovery claim. Nothing described here is DONE. B-03 and B-04 remain open, not-started slices in the canonical program ledger, and their implementation admission is BLOCKED until the upstream contracts named in this document are ratified.
+This is the B-03/B-04 design note for ``omarchy-silicon/u-boot-omarchy``, final bounded design-correction round 3. It is a design-only document. It is not an implementation, a build result, a schema, a binding, a test result, a compatibility claim, a support claim, a qualification record, a release approval, or a recovery claim. Nothing described here is DONE. B-03 and B-04 remain open, not-started slices in the canonical program ledger, and their implementation admission is BLOCKED until the upstream contracts named in this document are ratified.
 
 The canonical program is ``omarchy-apple-platform/PROGRAM.md`` at the ratified commit ``58302d148f0e8b855578f9aa518ff1c5eb48c515``. This document binds U-Boot to the frozen cross-repository contracts listed in that program and creates no second authority.
 
@@ -17,14 +17,25 @@ The coordinator has fenced ``m1n1-omarchy`` and every m1n1 path as an opaque hum
 Ratification and fail-closed gate
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The current text is a design proposal only. The F-02 and F-03 documents, generated bindings, authority bindings, monotonic-floor authority, device/installation identity authority, and their digests are external inputs, not values defined by this file. Before any ``Trusted<T>`` constructor, slot read, recovery launch, state transition, or release build, U-Boot must compare the locally compiled contract identity with the exact ratified F-02/F-03 identities and verify the authenticated source records. Missing, expired, revoked, unavailable, or mismatched canonical dependencies have exactly one result: ``TRUST_BOUNDARY_FAILURE`` or ``BINDING_INTEGRITY_FAILURE``, no write, no selection, no recovery fallback, and ``HOLD/HALT``. A local alias, guessed value, stable-channel signature, copied disk value, or opaque predecessor output cannot satisfy this gate.
+The current text is a design proposal only. The F-02 and F-03 documents, generated bindings, authority bindings, monotonic-floor authority, device/installation identity authority, and their digests are external inputs, not values defined by this file. Before any ``Trusted<T>`` constructor, slot read, recovery launch, state transition, or release build, U-Boot must compare the locally compiled contract identity with the exact ratified F-02/F-03 identities and verify the authenticated source records. A missing, expired, revoked, unavailable, or mismatched canonical dependency has exactly one result: ``BINDING_INTEGRITY_FAILURE`` at ``contract.authority_lock`` during ratification, terminal action ``TA-HOLD-NO-WRITE``. No constructor, storage write, selection, recovery launch, or release admission occurs. A local alias, guessed value, stable-channel signature, copied disk value, or opaque predecessor output cannot satisfy this gate.
+
+Future F-02/F-03 identity lock
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Ratification imports exactly one ``contract-authority-import/v1`` object with exactly four members: ``import_schema``, ``f02``, ``f03``, and ``schema``. ``import_schema`` is the fixed string ``contract-authority-import/v1``. ``f02`` and ``f03`` are ``contract-authority-lock/v1`` objects, and ``schema`` is a ``schema-authority-lock/v1`` object. The import is an external F-02/F-03 handoff, not a local authority record.
+
+Each ``contract-authority-lock/v1`` member has exactly ``lock_schema``, ``contract_id``, ``owner_id``, ``repository_id``, ``document_id``, ``source_commit``, ``content_digest``, ``payload_digest``, ``schema_set_digest``, ``generated_binding_digest``, ``authority_binding_digest``, and ``ratification_receipt_digest``. The ``schema-authority-lock/v1`` member has exactly ``lock_schema``, ``schema_set_id``, ``schema_set_version``, ``repository_id``, ``document_id``, ``source_commit``, ``content_digest``, ``payload_digest``, ``schema_set_digest``, ``generated_binding_digest``, and ``ratification_receipt_digest``. ``source_commit`` is an immutable commit identity; a branch, tag, ref, local alias, or copied object is not an identity. The release image embeds all three canonical lock objects byte-for-byte. The runtime authority input must carry the same three locks and their authenticated source records; U-Boot compares the fields in object order (import, F-02, F-03, schema), compares every cross-lock ``schema_set_digest`` and ``generated_binding_digest`` relation, verifies every ratification receipt, and only then constructs the imported F-02/F-03 types. No value in this paragraph supplies an authority value.
+
+Strict parsing rejects an unknown or duplicate lock field as ``PARSE_SCHEMA_FAILURE`` before an identity object exists. After strict parsing, any missing, expired, revoked, unavailable, or mismatched import member, lock field, source record, schema-set digest, generated binding, authority binding, or ratification receipt has exactly one result: ``BINDING_INTEGRITY_FAILURE`` at ``contract.authority_lock`` during ratification, result ``HOLD``, terminal action ``TA-HOLD-NO-WRITE``. This is the only missing/mismatch result for F-02, F-03, or schema authority. No ``TRUST_BOUNDARY_FAILURE``, freshness result, recovery result, or local alias may replace it. The unresolved locks therefore keep implementation admission in HOLD; they never become local authority by being copied into this design note.
+
+The authority-lock guard has four named mutations: remove ``f02``, remove ``f03``, change ``schema.schema_set_digest``, and change ``f03.authority_binding_digest``. Each mutation is rejected at the same exact tuple ``(BINDING_INTEGRITY_FAILURE, contract.authority_lock, ratification, HOLD)`` with terminal action ``TA-HOLD-NO-WRITE``. A valid lock copied from another branch, repository, document, schema set, or generation is a mismatch at this same tuple; no fixture may substitute a local value or choose a later phase.
 
 The proposal becomes eligible for implementation only after the coordinator ratifies the exact record, manifest, profile, promotion, storage, and authority relations below. Ratification does not imply implementation, CI, power-cut evidence, physical qualification, release approval, or DONE status.
 
 Verdict on the previous tip
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The coordinator rejected tip ``e385874ca1987248b40aa150f10d3d3ad32fde02`` with eight contract failures: unclosed cross-contract authority, a conceptual boot-control record, conflated success authority, an unclosed GRUB handoff, unenforced release selection, illustrative artifact roles, a missing toctree entry, and zero executable artifacts. Each is addressed in the section named below; none is addressed by implementation, because this lane owns only this document and ``doc/board/apple/index.rst``.
+The coordinator rejected tip ``e385874ca1987248b40aa150f10d3d3ad32fde02`` with eight contract failures: unclosed cross-contract authority, a conceptual boot-control record, conflated success authority, an unclosed GRUB handoff, unenforced release selection, illustrative artifact roles, a missing toctree entry, and zero executable artifacts. This round corrects only the six bounded design seams named by the latest gate; none is addressed by implementation, because this lane owns only this document.
 
 .. list-table::
    :header-rows: 1
@@ -91,7 +102,7 @@ U-Boot's consumer follows the only construction path: ``strict_parse -> canonica
 
 Authority resolution uses only the closed ``AuthorityRoleBinding`` records inside the F-03-supplied ``Trusted<TrustContext>``: ``binding_schema``, ``authority_id``, ``role``, ``actor_id``, ``account_id``, ``key_ids``, ``allowed_methods``, ``service_policy_id``, ``service_policy_digest``, ``issued_at``, ``expires_at``, and ``binding_digest``. The ten roles are ``board-admission``, ``manifest-release``, ``installer-planner``, ``owner-authorization``, ``ci-conformance``, ``qualification-lab``, ``boot-runtime``, ``dtb-authority``, ``evidence-reader``, and ``f07-promotion``. U-Boot resolves exactly three roles at boot: ``manifest-release`` for the slot manifest, ``f07-promotion`` for the embedded promotion receipt, and ``boot-runtime`` for the boot-health core and the boot-success mark. A key ID or role string in an envelope is an authenticated claim to be checked against the binding, never a hint that grants anything.
 
-``ExpectedContext`` is constructed by U-Boot for each verification with the exact row from the eight-row signing contract and the separately ratified F-07 receipt context: ``payload_type``, ``payload_version``, ``domain``, ``context``, ``project_id``, ``repository_id``, ``slice_id``, ``operation``, ``board_id``, ``manifest_id``, ``manifest_digest``, ``schema_set_digest``, ``target_account_id``, ``target_account_binding``, ``target_identity_digests``, and ``policy_digest``. The fixed ``project_id``, ``repository_id``, and ``slice_id`` values for the boot rows are BLK-14. A mismatch on any non-null member is ``SIGNATURE_CONTEXT_MISMATCH`` or ``BOOT_PROMOTION_FAILURE`` for the receipt.
+``ExpectedContext`` is constructed by U-Boot for each verification with the exact row from the eight-row signing contract and the separately ratified F-07 receipt context: ``payload_type``, ``payload_version``, ``domain``, ``context``, ``project_id``, ``repository_id``, ``slice_id``, ``operation``, ``board_id``, ``manifest_id``, ``manifest_digest``, ``schema_set_digest``, ``target_account_id``, ``target_account_binding``, ``target_identity_digests``, and ``policy_digest``. The fixed ``project_id``, ``repository_id``, and ``slice_id`` values for the boot rows are BLK-14. A mismatch on a signing-row member is ``SIGNATURE_CONTEXT_MISMATCH``; a receipt member mismatch is ``BOOT_PROMOTION_FAILURE``.
 
 Signer role, scope, expiry, and replay are enforced in this order: envelope field equality, signing-row equality, authority binding resolution, key expiry and revocation epoch, payload ``expires_at``, then replay reservation against the durable record. Anti-transplant is enforced twice: once inside the signed preimage and once by U-Boot comparing the ``document_id``, ``manifest_digest``, board, slot, generation, lineage, and counter values in the payload against its own durable record.
 
@@ -249,9 +260,9 @@ Manifest projection and promotion admission
 
 The generated F-02 manifest-authority validator is a mandatory predecessor to ``Trusted<PlatformManifest>``. It receives only a strictly parsed, canonical ``platform-manifest/v1`` envelope and the exact F-02 schema-set digest. It recomputes the authoritative component projections and compares, in this fixed order, ``artifacts``, ``package_set``, ``compatibility``, ``firmware_schema``, and ``rollback``. For every projection it compares array length, object key set, key order, array order, scalar type, scalar value, nested object, and every field. Extra, missing, duplicated, reordered, or differently typed properties are failures, not ignored extensions. The validator returns one deterministic result tuple ``(code, path, phase, result)`` for the first canonical path in that order; no later validator may replace it.
 
-The only accepted manifest construction is ``strict_parse -> canonicalize -> derive_payload_digest -> envelope and signer verification -> generated F-02 projection validation -> F-07 promotion-receipt validation -> Trusted<PlatformManifest>``. The projection validator is not a best-effort warning and is not a consumer-local alias. If the generated validator, its schema-set digest, or its source record is missing or mismatched, the result is ``BINDING_INTEGRITY_FAILURE`` or ``BOOT_PROJECTION_FAILURE`` and the manifest is absent. Stable-channel signature verification without this predecessor never constructs the trusted type.
+The only accepted manifest construction is ``strict_parse -> canonicalize -> derive_payload_digest -> envelope and signer verification -> generated F-02 projection validation -> F-07 promotion-receipt validation -> Trusted<PlatformManifest>``. The projection validator is not a best-effort warning and is not a consumer-local alias. A missing or mismatched generated validator, schema-set digest, or source record returns ``BINDING_INTEGRITY_FAILURE`` at ``contract.authority_lock``. A projection mismatch returns ``BOOT_PROJECTION_FAILURE`` at ``manifest.projection``. In both cases the manifest is absent. Stable-channel signature verification without this predecessor never constructs the trusted type.
 
-The F-07 promotion receipt is a separately authenticated, owner-authorized relation embedded at ``$.payload.promotion_receipt`` and bound into the canonical manifest. It is not a ninth top-level payload type or a consumer-local alias. Its exact future-ratified object must contain ``receipt_schema``, ``candidate_digest``, ``rollback_digest``, ``closure_digest``, the complete required-slice closure, ``board_id``, ``profile_digest``, ``qualification_record_digest``, ``legal_digest``, ``public_ledger_digest``, ``channel``, ``manifest_id``, ``manifest_digest``, ``generation``, ``lineage_id``, ``health_evidence_digest``, ``signer_id``, ``signing_context``, ``issued_at``, ``expires_at``, ``replay_id``, and ``receipt_signature``. U-Boot verifies every field, the receipt signer and context under ``f07-promotion``, freshness, anti-replay, and equality to the manifest and current record. Missing, stale, forked, incomplete, or mismatched receipt is ``BOOT_PROMOTION_FAILURE`` at ``manifest.admission.promotion_receipt`` with result ``REJECT/HALT``. A stable-channel signature alone is never sufficient.
+The F-07 promotion receipt is a separately authenticated, owner-authorized relation embedded at ``$.payload.promotion_receipt`` and bound into the canonical manifest. It is not a ninth top-level payload type or a consumer-local alias. Its exact future-ratified object must contain ``receipt_schema``, ``candidate_digest``, ``rollback_digest``, ``closure_digest``, the complete required-slice closure, ``board_id``, ``profile_digest``, ``qualification_record_digest``, ``legal_digest``, ``public_ledger_digest``, ``channel``, ``manifest_id``, ``manifest_digest``, ``generation``, ``lineage_id``, ``health_evidence_digest``, ``signer_id``, ``signing_context``, ``issued_at``, ``expires_at``, ``replay_id``, and ``receipt_signature``. U-Boot verifies every field, the receipt signer and context under ``f07-promotion``, freshness, anti-replay, and equality to the manifest and current record. Missing, stale, forked, incomplete, or mismatched receipt is ``BOOT_PROMOTION_FAILURE`` at ``manifest.admission.promotion_receipt`` with result ``REJECT``. A stable-channel signature alone is never sufficient.
 
 .. list-table::
    :header-rows: 1
@@ -264,36 +275,36 @@ The F-07 promotion receipt is a separately authenticated, owner-authorized relat
    * - 1
      - ``$.payload.artifacts`` against recomputed component artifact projection; exact length, key, order, and every field
      - ``BOOT_PROJECTION_FAILURE``
-     - ``manifest.projection.artifacts``; ``REJECT/HALT``
+     - ``manifest.projection.artifacts``; ``REJECT``
    * - 2
      - ``$.payload.package_set`` against the recomputed package projection; exact length, key, order, and every field
      - ``BOOT_PROJECTION_FAILURE``
-     - ``manifest.projection.package_set``; ``REJECT/HALT``
+     - ``manifest.projection.package_set``; ``REJECT``
    * - 3
      - ``$.payload.compatibility`` against the recomputed compatibility projection; exact length, key, order, and every field
      - ``BOOT_PROJECTION_FAILURE``
-     - ``manifest.projection.compatibility``; ``REJECT/HALT``
+     - ``manifest.projection.compatibility``; ``REJECT``
    * - 4
      - ``$.payload.firmware_schema`` against the recomputed firmware-schema projection; exact length, key, order, and every field
      - ``BOOT_PROJECTION_FAILURE``
-     - ``manifest.projection.firmware_schema``; ``REJECT/HALT``
+     - ``manifest.projection.firmware_schema``; ``REJECT``
    * - 5
      - ``$.payload.rollback`` against the recomputed rollback projection; exact length, key, order, and every field
      - ``BOOT_PROJECTION_FAILURE``
-     - ``manifest.projection.rollback``; ``REJECT/HALT``
+     - ``manifest.projection.rollback``; ``REJECT``
    * - 6
      - ``$.payload.promotion_receipt`` complete relation and exact equality to manifest, record, board, profile, and qualification inputs
      - ``BOOT_PROMOTION_FAILURE``
-     - ``manifest.admission.promotion_receipt``; ``REJECT/HALT``
+     - ``manifest.admission.promotion_receipt``; ``REJECT``
 
 Boot-health profile binding
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before ``Trusted<BootHealthCore>`` exists, U-Boot must bind the complete manifest-declared BootCheck profile. The bound profile is the exact allowed class set, check ID set and order, measurement name, unit, lower and upper bounds for every check, retry limit, failure limit, source evidence and source record identity, status vocabulary, profile digest, and freshness interval. The core's checks must have exactly the declared set and order, each ID exactly once, each class allowed, each measurement name and unit exact, each measurement within its declared bounds, each source record equal to the declared evidence, and each status equal to the closed vocabulary. ``checks_digest`` is recomputed only after those checks; it cannot launder an invalid profile.
 
-The core path is ``strict_parse -> canonicalize -> verify boot-runtime -> compare profile identity and digest -> compare allowed classes and exact check set/order -> compare measurement names/units/bounds -> compare retry/failure limits -> compare source evidence/record -> verify freshness -> Trusted<BootHealthCore>``. Any failure returns ``BOOT_PROFILE_FAILURE`` or ``BOOT_REQUIRED_CHECK_FAILURE`` with the first failing canonical check path and no trusted core. Success-mark validation is a separate later path: ``Trusted<BootHealthCore> -> strict_parse/verify boot-success-mark -> exact core, pending descriptor, counter, freshness, replay, and rollback comparisons -> T-05``. A valid core never implies a valid mark, and a valid mark never constructs a core.
+The core path is ``strict_parse -> canonicalize -> verify boot-runtime -> compare profile identity and digest -> compare allowed classes and exact check set/order -> compare measurement names/units/bounds -> compare retry/failure limits -> compare source evidence/record -> verify freshness -> Trusted<BootHealthCore>``. A profile-field failure returns ``BOOT_PROFILE_FAILURE``; a check-entry failure returns ``BOOT_REQUIRED_CHECK_FAILURE``. Each has the first failing canonical check path and no trusted core. Success-mark validation is a separate later path: ``Trusted<BootHealthCore> -> strict_parse/verify boot-success-mark -> exact core, pending descriptor, counter, freshness, replay, and rollback comparisons -> T-05``. A valid core never implies a valid mark, and a valid mark never constructs a core.
 
-Freshness is checked against the ratified F-02/F-03 clock or monotonic policy at both core and mark admission. Until that authority is ratified, the result is ``BOOT_FRESHNESS_FAILURE`` and ``HOLD/HALT``; counter equality alone is not a substitute.
+Freshness is checked against the ratified F-02/F-03 clock and monotonic policy at both core and mark admission. Until that authority is ratified, the result is ``BOOT_FRESHNESS_FAILURE`` with result ``HOLD`` and terminal action ``TA-HOLD-NO-WRITE``; counter equality alone is not a substitute.
 
 Limits the boot binding must enforce
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -303,7 +314,7 @@ PROVISIONAL, pending coordinator approval. The complete canonical success-mark e
 Failure vocabulary used by the boot consumer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-PROVISIONAL, pending coordinator approval. The boot HOLD/HALT set includes ``BOOT_MARKER_AUTH_FAILURE``, ``BOOT_CONTEXT_MISMATCH``, ``BOOT_COUNTER_FAILURE``, ``BOOT_REQUIRED_CHECK_FAILURE``, ``BOOT_FALLBACK_FAILURE``, ``TRUST_BOUNDARY_FAILURE``, ``BOOT_DEVICE_BINDING_FAILURE``, ``BOOT_RECORD_DIGEST_FAILURE``, ``BOOT_RECORD_SOURCE_FAILURE``, ``BOOT_REPLAY_RESERVATION_FAILURE``, ``BOOT_PROJECTION_FAILURE``, ``BOOT_PROFILE_FAILURE``, ``BOOT_FRESHNESS_FAILURE``, ``BOOT_PROMOTION_FAILURE``, ``BOOT_STORAGE_IDENTITY_FAILURE``, ``BOOT_CANDIDATE_CONFLICT``, ``BOOT_STATE_CONSISTENCY_FAILURE``, ``BOOT_RECOVERY_IDENTITY_FAILURE``, and ``BOOT_RECORD_COMMIT_FAILURE``. A HOLD/HALT code never produces success, never selects an unverified slot, and never uses a fallback that bypasses its predecessor authority. Every other code encountered by U-Boot (``PARSE_SCHEMA_FAILURE``, ``UNKNOWN_FIELD``, ``DUPLICATE_SEMANTIC_KEY``, ``CANONICALIZATION_FAILURE``, ``SIGNATURE_CONTEXT_MISMATCH``, ``TRUST_FAILURE``, ``EXPIRY_OR_REPLAY_FAILURE``, ``MANIFEST_EXPIRY_FAILURE``, ``CROSS_DOCUMENT_MISMATCH``, ``DOCUMENT_ID_REUSE``, ``DOCUMENT_ID_FORK``, ``BINDING_INTEGRITY_FAILURE``, ``RESOURCE_LIMIT``) is a reject: the object is treated as absent. U-Boot maps these to the 16-bit local codes in `Local failure codes`_ for storage in the durable record; the mapping is one-to-one and the string code is what U-Boot prints.
+PROVISIONAL, pending coordinator approval. Every boot decision uses exactly one registered local code and one terminal action from `Local failure codes`_ and `Failure code/path/phase/result matrix`_. ``HOLD`` means the current record remains unchanged and no launch occurs. ``HALT`` means no write and no launch. ``REJECT`` means the input object is absent and cannot authorize a later phase. ``BUILD_FAIL`` means release admission stops before an image exists. Unknown fields, duplicate keys, and canonicalization failures are all classified by the single ``PARSE_SCHEMA_FAILURE`` row. There is no local remapping at the OS boundary; the exact registered code remains the diagnostic identity.
 
 Authority separation
 --------------------
@@ -344,7 +355,7 @@ Freshness and installation binding
 
 The on-disk sequence is not an anti-rollback authority. The future-ratified F-02/F-03 ``DeviceInstallationBinding`` supplies the authenticated current-device and installation identity and an independently monotonic per-device/installation floor. Its exact preimage is ``ASCII("omarchy-device-installation-binding/v1") || 0x00 || JCS(I)`` where ``I`` is the closed object containing the board ID, installation ID, physical GPT disk GUID, ESP/BCR/BSM stable IDs and partition GUIDs, source authority ID, schema-set digest, and binding generation. The independent floor authority supplies a signed ``MonotonicFloorReceipt`` whose exact preimage is ``ASCII("omarchy-monotonic-floor/v1") || 0x00 || JCS(F)`` where ``F`` contains the installation identity digest, floor value, reservation ID, authority ID, binding digest, issued-at, expiry, and replay state. These preimages and fields are provisional until F-02/F-03 ratification; no local alias or guessed value is accepted.
 
-The exact ordering is: (1) verify the ratified F-02/F-03 schemas and ``Trusted<TrustContext>``; (2) authenticate the current-device/installation binding against live GPT identity; (3) obtain the independent floor and reject a missing, expired, revoked, or regressed receipt; (4) read both BCR copies and construct ``Trusted<AtomicBootRecord>`` only when its ``last_counter`` is at least the external floor and its source record and binding digest match; (5) reserve the next counter in the independent authority, burning the reservation on every later failure; (6) write and read back both committed copies carrying that exact ``last_counter`` and ``replay_reservation``; (7) commit the reservation in the independent authority; and only (8) install BootContext or launch. A failed reserve, write, read-back, or floor commit is ``BOOT_COUNTER_FAILURE`` or ``BOOT_DEVICE_BINDING_FAILURE``, no write or launch is permitted after the failure, and the terminal result is ``HOLD/HALT``. A stale full-disk image or clone cannot lower the external floor or change the current-device identity.
+The exact linearizable ordering is defined in `Commit protocol and crash recovery`_. The floor reservation is durable before BCR bytes change, the floor commit is the single transaction linearization point, and both BCR committed markers are required before launch. If ``floor_value`` is ``UINT64_MAX`` or the next reservation would overflow u64, the exact result is ``(BOOT_COUNTER_FAILURE, atomic_record.counter, freshness, HOLD)`` with terminal action ``TA-HOLD-NO-WRITE`` before any floor or BCR write. A failed device identity check is ``BOOT_DEVICE_BINDING_FAILURE``; a failed floor or BCR transaction is ``BOOT_RECORD_COMMIT_FAILURE``; each uses its single matrix tuple and no write or launch follows it. A stale full-disk image or clone cannot lower the external floor or change the current-device identity.
 
 .. _atomic-boot-record-mapping:
 
@@ -368,7 +379,7 @@ The BCR is the physical storage encoding of the future-ratified F-02 ``AtomicBoo
    * - ``commit_state``
      - ``R.commit_state`` from the F-02 journal, never inferred from copy order
      - BCR-23, canonical enum bytes
-     - Only the ratified committed value constructs the trusted record; otherwise ``BOOT_RECORD_COMMIT_FAILURE``
+     - Only the ratified ``committed`` value constructs the trusted record; ``prepared`` is a recovery marker and an unknown value is ``BOOT_RECORD_COMMIT_FAILURE``
    * - ``record_digest``
      - ``sha256(ASCII("omarchy-boot-lineage-record/v1") || 0x00 || JCS(R without record_digest))``
      - BCR-24, raw SHA-256 bytes
@@ -388,11 +399,11 @@ The BCR is the physical storage encoding of the future-ratified F-02 ``AtomicBoo
    * - ``permanent_tombstones``
      - Append-only F-02 document-lineage history covering every prior document ID, payload digest, generation, and lineage
      - BCR-29 tombstone-root digest; history is durable and authenticated, never descriptor-local
-     - Enforce one ``document_id`` to one ``payload_digest`` and permanent non-reuse; failure is ``DOCUMENT_ID_REUSE`` or ``DOCUMENT_ID_FORK``
+     - Enforce one ``document_id`` to one ``payload_digest`` and permanent non-reuse; a second digest is ``DOCUMENT_ID_REUSE`` and two durable divergent digests are ``DOCUMENT_ID_FORK``
    * - ``Trusted<AtomicBootRecord>`` constructor
      - Generated F-02 constructor over the verified canonical journal record and ``Trusted<TrustContext>``
      - No local constructor or consumer-local alias
-     - The only result is ``Trusted<AtomicBootRecord>`` or no value; unavailable/mismatched F-02/F-03 authority is ``HOLD/HALT``
+     - The only successful result is ``Trusted<AtomicBootRecord>``; unavailable or mismatched F-02/F-03 authority is ``BINDING_INTEGRITY_FAILURE`` with result ``HOLD``
 
 The current fixed-offset fields below are a storage proposal pending that ratification. Until the mapping is ratified, BCR-07 ``sequence`` is evidence only, cannot satisfy ``last_counter``, and no release transition is admitted. Permanent tombstones are retained across every slot-generation rewrite and across both copies; descriptor recycling never deletes lineage history.
 
@@ -678,7 +689,7 @@ Canonical AtomicBootRecord projection, bytes 1,024 through 1,227:
      - 4
      - u32
      - ``commit_state``
-     - Exact canonical F-02 committed-state value; no inference from copy order
+     - Exact imported F-02 ``AtomicBootRecord`` phase marker: ``prepared`` or ``committed``; the wire values are supplied by the ratified F-02 lock, and an unknown value invalidates the copy
    * - BCR-24
      - 1060
      - 32
@@ -795,7 +806,7 @@ The 16-bit codes stored in BCR-18 and BCR-S05 are closed. Each maps one-to-one t
      - Attempt budget exhausted without an accepted mark, or a fallback target outside the rollback set
    * - 2
      - ``BOOT_MARKER_AUTH_FAILURE``
-     - Mark or core signature, role, domain, or context failed
+     - Mark/core/header authentication, signature, role, domain, context, or container-state check failed
    * - 3
      - ``BOOT_CONTEXT_MISMATCH``
      - Mark, core, or manifest tuple differs from the pending descriptor
@@ -839,8 +850,8 @@ The 16-bit codes stored in BCR-18 and BCR-S05 are closed. Each maps one-to-one t
      - ``OMARCHY_BCR_DIVERGENT``
      - Both copies valid with equal sequence and different content
    * - 17
-     - ``OMARCHY_BCR_COMMIT_FAILED``
-     - A two-copy commit could not be completed and read back
+     - ``BOOT_RECORD_COMMIT_FAILURE``
+     - The BCR/floor transaction, repair, or writer serialization cannot complete the fixed durable protocol
    * - 18
      - ``OMARCHY_BOARD_MISMATCH``
      - Working device tree does not resolve to exactly one registry board or does not equal BCR-14
@@ -896,8 +907,8 @@ The 16-bit codes stored in BCR-18 and BCR-S05 are closed. Each maps one-to-one t
      - ``BOOT_RECOVERY_IDENTITY_FAILURE``
      - Immutable compiled or independently authenticated recovery identity/digest is unavailable or mismatched
    * - 36
-     - ``BOOT_RECORD_COMMIT_FAILURE``
-     - A BCR/BSM durable write, flush, or read-back did not complete exactly
+     - ``BOOT_MARKER_COMMIT_FAILURE``
+     - A BSM header, core, mark, or clear write did not complete and read back exactly
    * - 37
      - ``CI_CONFORMANCE_FAILURE``
      - A required generated fixture, validator, or CI gate is absent, fails, or is unobserved
@@ -907,110 +918,243 @@ The 16-bit codes stored in BCR-18 and BCR-S05 are closed. Each maps one-to-one t
    * - 39
      - ``RELEASE_PROFILE_FAILURE``
      - The resolved release configuration is absent, mismatched, or not fully closed
+   * - 40
+     - ``BOOT_ARTIFACT_ID_FAILURE``
+     - An artifact ID cannot pass the strict byte grammar or bounded safe-join/file-object checks
+   * - 41
+     - ``BOOT_ARTIFACT_ROLE_FAILURE``
+     - An artifact role is missing, duplicated, or has more than one manifest entry
 
-The codes 14 through 39 are U-Boot-local diagnostic codes for conditions the F-02 vocabulary does not name at this boundary. They are never written into an F-02 payload; the OS-side writer maps a U-Boot local code it observes in the BootContext to ``TRUST_BOUNDARY_FAILURE`` if it must report one. Each code has one first-failure path, phase, result, and terminal action in `Failure code/path/phase/result matrix`_.
+The codes 14 through 41 are U-Boot-local diagnostic codes for conditions the F-02 vocabulary does not name at this boundary. They are never written into an F-02 payload and are never renamed at a consumer boundary. The code string printed, stored in BCR-18/BCR-S05, and carried in any diagnostic evidence is the exact registry string. Each registry entry has exactly one matrix row, one canonical path, one phase, one result, and one terminal action in `Failure code/path/phase/result matrix`_.
 
 Failure code/path/phase/result matrix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following is the stable mapping used by every transition, copy case, success-mark case, hostile fixture, residual, and blocked constant. The path is the first canonical input path or physical resolver; later checks cannot replace its result. ``REJECT`` means the object is absent, ``HOLD`` means no success or new selection, and ``HALT`` means no write or launch.
+The following is the closed mapping used by every transition, copy case, success-mark case, hostile fixture, residual, and blocked constant. The path is the first canonical input path or physical resolver; later checks cannot replace its result. Result values are singletons: ``PASS``, ``REJECT``, ``HOLD``, ``HALT``, or ``BUILD_FAIL``. Terminal actions are closed: ``TA-CONTINUE``, ``TA-REJECT-OBJECT``, ``TA-HOLD-NO-WRITE``, ``TA-HALT-NO-LAUNCH``, ``TA-BUILD-FAIL``, ``TA-CI-FAIL``, and ``TA-QUALIFICATION-FAIL``. Each token has one meaning, and a row contains one result and one action.
+
+Simultaneous faults use one total precedence. U-Boot assigns every observed fault ``(phase_rank, path_rank)`` and selects the minimum pair. The phase ranks are fixed integers: 0 ``ratification``, 1 ``device-binding``, 2 ``physical-resolution``, 3 ``record-authentication``, 4 ``record-replay``, 5 ``state-validation``, 6 ``candidate-detection``, 7 ``manifest-parse``, 8 ``signature-context``, 9 ``manifest-projection``, 10 ``manifest-expiry``, 11 ``promotion-admission``, 12 ``artifact-admission``, 13 ``profile-admission``, 14 ``freshness``, 15 ``success-mark``, 16 ``transition``, 17 ``durable-commit``, 18 ``recovery-admission``, 19 ``release-profile``, 20 ``ci-gate``, and 21 ``qualification-gate``. ``none`` is the no-fault code-0 row and never competes with a fault. Within a phase, ``path_rank`` is the unsigned-byte lexicographic order of the unique canonical path in this matrix. The selected row is the only reported tuple; later faults never replace it, and no fault may emit a set of codes or outcomes.
+
+The closure guard extracts the numeric registry set and the matrix set and requires both to equal ``{0, 1, ..., 41}``; it requires every non-zero registry string to occur in exactly one matrix row and every non-zero matrix path to occur in exactly one row. It also requires every fixture, transition, copy case, success-mark case, residual, and blocked constant to reference an existing matrix tuple. A planted unknown code, duplicate code, missing row, duplicate path, code-17 alias, multi-result token, or multi-action token rejects the design model. Code 17 is only ``BOOT_RECORD_COMMIT_FAILURE`` and no prose may report it under another name.
 
 .. list-table::
    :header-rows: 1
-   :widths: 24 30 20 26
+   :widths: 6 28 18 12 36
 
    * - Code
      - First-failure path
      - Phase
      - Result
-   * - ``BINDING_INTEGRITY_FAILURE``
-     - ``contract.f02_f03.schema_set_digest``
-     - ratification
-     - ``REJECT/HOLD/HALT``; no constructor, write, or launch
-   * - ``BOOT_DEVICE_BINDING_FAILURE``
-     - ``storage.device_installation_binding``
-     - device binding
-     - ``HOLD/HALT``; no slot read or write
-   * - ``BOOT_COUNTER_FAILURE``
-     - ``atomic_record.last_counter`` or ``monotonic_floor``
-     - freshness/reservation
-     - ``HOLD/HALT``; reservation is burned and no launch
-   * - ``BOOT_RECORD_DIGEST_FAILURE``
-     - ``bcr.atomic_record.record_digest``
-     - record authentication
-     - ``REJECT/HALT``; no copy selected
-   * - ``BOOT_RECORD_SOURCE_FAILURE``
-     - ``bcr.atomic_record.authenticated_source_record``
-     - record authentication
-     - ``REJECT/HALT``; no copy selected
-   * - ``BOOT_REPLAY_RESERVATION_FAILURE``
-     - ``bcr.atomic_record.replay_reservation``
-     - replay admission
-     - ``HOLD/HALT``; no transition
-   * - ``BOOT_PROJECTION_FAILURE``
-     - ``manifest.payload.<projection>``
-     - manifest projection
-     - ``REJECT/HALT``; no trusted manifest
-   * - ``BOOT_PROFILE_FAILURE``
-     - ``boot_health.profile.<field>``
-     - core admission
-     - ``REJECT/HOLD``; no trusted core
-   * - ``BOOT_REQUIRED_CHECK_FAILURE``
-     - ``boot_health.checks[<index>]``
-     - core admission
-     - ``HOLD``; no success mark accepted
-   * - ``BOOT_FRESHNESS_FAILURE``
-     - ``boot_health.freshness`` or ``success_mark.freshness``
+     - Terminal action
+   * - 0 ``none``
+     - ``none``
+     - none
+     - ``PASS``
+     - ``TA-CONTINUE``
+   * - 1 ``BOOT_FALLBACK_FAILURE``
+     - ``transition.fallback_target``
+     - transition
+     - ``HALT``
+     - ``TA-HALT-NO-LAUNCH``
+   * - 2 ``BOOT_MARKER_AUTH_FAILURE``
+     - ``success_mark.authentication``
+     - success-mark
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 3 ``BOOT_CONTEXT_MISMATCH``
+     - ``success_mark.binding_tuple``
+     - success-mark
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 4 ``BOOT_COUNTER_FAILURE``
+     - ``atomic_record.counter``
      - freshness
-     - ``HOLD/HALT``; no success
-   * - ``BOOT_PROMOTION_FAILURE``
-     - ``manifest.payload.promotion_receipt``
-     - promotion admission
-     - ``REJECT/HALT``; no candidate staging
-   * - ``BOOT_STORAGE_IDENTITY_FAILURE``
-     - ``storage.esp.matches`` or ``storage.parent_relation``
-     - physical resolution
-     - ``HOLD/HALT``; no slot files read
-   * - ``BOOT_CANDIDATE_CONFLICT``
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 5 ``BOOT_REQUIRED_CHECK_FAILURE``
+     - ``boot_health.checks``
+     - profile-admission
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 6 ``TRUST_BOUNDARY_FAILURE``
+     - ``trust.input``
+     - ratification
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 7 ``CROSS_DOCUMENT_MISMATCH``
+     - ``manifest.cross_document``
+     - signature-context
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 8 ``BINDING_INTEGRITY_FAILURE``
+     - ``contract.authority_lock``
+     - ratification
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 9 ``MANIFEST_EXPIRY_FAILURE``
+     - ``manifest.expires_at``
+     - manifest-expiry
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 10 ``EXPIRY_OR_REPLAY_FAILURE``
+     - ``success_mark.replay_id``
+     - record-replay
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 11 ``SIGNATURE_CONTEXT_MISMATCH``
+     - ``manifest.signature_context``
+     - signature-context
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 12 ``RESOURCE_LIMIT``
+     - ``envelope.resource_limit``
+     - manifest-parse
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 13 ``PARSE_SCHEMA_FAILURE``
+     - ``envelope.schema``
+     - manifest-parse
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 14 ``OMARCHY_ARTIFACT_DIGEST_MISMATCH``
+     - ``artifact.content_digest``
+     - artifact-admission
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 15 ``OMARCHY_ARTIFACT_MISSING``
+     - ``artifact.required_entry``
+     - artifact-admission
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 16 ``OMARCHY_BCR_DIVERGENT``
+     - ``bcr.copy_divergence``
+     - record-authentication
+     - ``HALT``
+     - ``TA-HALT-NO-LAUNCH``
+   * - 17 ``BOOT_RECORD_COMMIT_FAILURE``
+     - ``bcr.commit.transaction``
+     - durable-commit
+     - ``HALT``
+     - ``TA-HALT-NO-LAUNCH``
+   * - 18 ``OMARCHY_BOARD_MISMATCH``
+     - ``board_registry.match``
+     - device-binding
+     - ``HALT``
+     - ``TA-HALT-NO-LAUNCH``
+   * - 19 ``OMARCHY_LKG_INVALID``
+     - ``slot.last_known_good``
+     - state-validation
+     - ``HALT``
+     - ``TA-HALT-NO-LAUNCH``
+   * - 20 ``BOOT_DEVICE_BINDING_FAILURE``
+     - ``storage.device_installation_binding``
+     - device-binding
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 21 ``BOOT_RECORD_DIGEST_FAILURE``
+     - ``bcr.record_digest``
+     - record-authentication
+     - ``HALT``
+     - ``TA-HALT-NO-LAUNCH``
+   * - 22 ``BOOT_RECORD_SOURCE_FAILURE``
+     - ``bcr.source_record``
+     - record-authentication
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 23 ``BOOT_REPLAY_RESERVATION_FAILURE``
+     - ``bcr.replay_reservation``
+     - record-replay
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 24 ``BOOT_PROJECTION_FAILURE``
+     - ``manifest.projection``
+     - manifest-projection
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 25 ``BOOT_PROFILE_FAILURE``
+     - ``boot_health.profile``
+     - profile-admission
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 26 ``BOOT_FRESHNESS_FAILURE``
+     - ``freshness.clock``
+     - freshness
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 27 ``BOOT_PROMOTION_FAILURE``
+     - ``manifest.promotion_receipt``
+     - promotion-admission
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 28 ``BOOT_STORAGE_IDENTITY_FAILURE``
+     - ``storage.esp.matches``
+     - physical-resolution
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 29 ``BOOT_CANDIDATE_CONFLICT``
      - ``candidate_set``
-     - stage detection
-     - ``HOLD/HALT``; no PENDING write
-   * - ``DOCUMENT_ID_REUSE`` or ``DOCUMENT_ID_FORK``
-     - ``atomic_record.permanent_tombstones``
-     - lineage admission
-     - ``REJECT/HALT``; no staging
-   * - ``RELEASE_COMMAND_CLOSURE_FAILURE``
+     - candidate-detection
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 30 ``DOCUMENT_ID_REUSE``
+     - ``atomic_record.permanent_tombstones.reuse``
+     - state-validation
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 31 ``DOCUMENT_ID_FORK``
+     - ``atomic_record.permanent_tombstones.fork``
+     - state-validation
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 32 ``RELEASE_COMMAND_CLOSURE_FAILURE``
      - ``release_command_allowlist.enabled_command``
-     - build/design gate
-     - build fails; no release admission
-   * - ``BOOT_PROVENANCE_FAILURE``
-     - ``provenance.<relation>``
-     - provenance admission
-     - ``REJECT/HALT``; no trusted artifact
-   * - ``BOOT_STATE_CONSISTENCY_FAILURE``
-     - ``atomic_record.selected_slot`` and descriptors
-     - state validation
-     - ``HOLD/HALT``; no write or launch
-   * - ``BOOT_RECOVERY_IDENTITY_FAILURE``
+     - release-profile
+     - ``BUILD_FAIL``
+     - ``TA-BUILD-FAIL``
+   * - 33 ``BOOT_PROVENANCE_FAILURE``
+     - ``manifest.provenance_relation``
+     - artifact-admission
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 34 ``BOOT_STATE_CONSISTENCY_FAILURE``
+     - ``atomic_record.state``
+     - state-validation
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 35 ``BOOT_RECOVERY_IDENTITY_FAILURE``
      - ``recovery.immutable_identity``
-     - recovery admission
-     - ``HALT``; no emergency fallback
-   * - ``BOOT_RECORD_COMMIT_FAILURE``
-     - ``bcr.copy[0|1].readback`` or ``storage.flush``
-     - durable commit
-     - ``HOLD/HALT``; no launch
-   * - ``CI_CONFORMANCE_FAILURE``
+     - recovery-admission
+     - ``HALT``
+     - ``TA-HALT-NO-LAUNCH``
+   * - 36 ``BOOT_MARKER_COMMIT_FAILURE``
+     - ``bsm.commit.readback``
+     - durable-commit
+     - ``HOLD``
+     - ``TA-HOLD-NO-WRITE``
+   * - 37 ``CI_CONFORMANCE_FAILURE``
      - ``ci.required_fixture``
-     - CI gate
-     - ``REJECT/HALT``; no promotion
-   * - ``QUALIFICATION_FAILURE``
+     - ci-gate
+     - ``BUILD_FAIL``
+     - ``TA-CI-FAIL``
+   * - 38 ``QUALIFICATION_FAILURE``
      - ``qualification.board_profile``
-     - physical gate
-     - ``REJECT/HALT``; no promotion
-   * - ``RELEASE_PROFILE_FAILURE``
+     - qualification-gate
+     - ``BUILD_FAIL``
+     - ``TA-QUALIFICATION-FAIL``
+   * - 39 ``RELEASE_PROFILE_FAILURE``
      - ``release.config``
-     - release-profile gate
-     - ``REJECT/HALT``; no release build
+     - release-profile
+     - ``BUILD_FAIL``
+     - ``TA-BUILD-FAIL``
+   * - 40 ``BOOT_ARTIFACT_ID_FAILURE``
+     - ``manifest.artifact_id``
+     - artifact-admission
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
+   * - 41 ``BOOT_ARTIFACT_ROLE_FAILURE``
+     - ``manifest.artifact_role``
+     - artifact-admission
+     - ``REJECT``
+     - ``TA-REJECT-OBJECT``
 
 Slot states and transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1028,11 +1172,11 @@ The five slot states are EMPTY, PENDING, ACCEPTED, FAILED, and PINNED. The recor
    * - T-01
      - Installer (Linux stage under an approved plan)
      - none to provisioned-unaccepted
-     - Writes both copies with the exact ratified F-02 ``journal_schema``, ``commit_state``, authenticated source record, device/installation binding, floor receipt, replay reservation, and permanent-tombstone root; ``sequence = 1`` is evidence only, ``auth_algorithm = 1`` is provisioning-only, ``slot-a`` PENDING with ``attempts_used = 0``, ``attempt_counter = 0``, ``slot_generation = 1``, the staged manifest and complete profile digests, ``slot-b`` EMPTY, ``recovery`` PINNED with the immutable recovery identity, ``last_known_good_slot = 0``, and ``selected_slot = 1``. Any other content in an unkeyed record is invalid. If the canonical F-02/F-03 source, device binding, or floor cannot be authenticated, provisioning is not a release admission and the result is HOLD/HALT; there is no recovery-OS rewrite path.
+     - Writes both copies with the exact ratified F-02 ``journal_schema``, ``commit_state``, authenticated source record, device/installation binding, floor receipt, replay reservation, and permanent-tombstone root; ``sequence = 1`` is evidence only, ``auth_algorithm = 1`` is provisioning-only, ``slot-a`` PENDING with ``attempts_used = 0``, ``attempt_counter = 0``, ``slot_generation = 1``, the staged manifest and complete profile digests, ``slot-b`` EMPTY, ``recovery`` PINNED with the immutable recovery identity, ``last_known_good_slot = 0``, and ``selected_slot = 1``. Any other content in an unkeyed record is invalid. If the canonical F-02/F-03 source, device binding, or floor cannot be authenticated, provisioning is not a release admission and the result is HOLD; there is no recovery-OS rewrite path.
    * - T-02
      - U-Boot
      - unkeyed to keyed
-     - Folded into the first U-Boot commit only after the ratification, device-binding, floor, and source-record gates: the record is rewritten with ``auth_algorithm = 2``, exact F-02 ``commit_state = committed``, a fresh MAC, ``record_digest``, and the reserved counter. In a non-release profile the record stays at algorithm 1 and cannot launch or produce a trusted BootContext.
+     - Folded into the first U-Boot commit protocol only after the ratification, device-binding, floor, and source-record gates: the record is rewritten with ``auth_algorithm = 2``, exact F-02 ``commit_state = committed``, a fresh MAC, ``record_digest``, and the reserved counter. In a non-release profile the record stays at algorithm 1 and cannot launch or produce a trusted BootContext.
    * - T-03
      - U-Boot
      - EMPTY, FAILED, or non-last-known-good ACCEPTED to PENDING (stage detection)
@@ -1040,7 +1184,7 @@ The five slot states are EMPTY, PENDING, ACCEPTED, FAILED, and PINNED. The recor
    * - T-04
      - U-Boot
      - PENDING to PENDING (attempt consumption)
-     - ``selected_slot`` is exactly the PENDING descriptor, ``attempts_used < attempt_limit``, and the independent authority durably reserves the next ``last_counter`` before any write. Effect: ``attempts_used + 1``, ``attempt_counter = reservation.counter``, ``last_counter = reservation.counter``, ``replay_reservation``, ``pending_time_unix``. Both copies are committed and read back before the reservation is committed and before BootContext installation or launch.
+     - ``selected_slot`` is exactly the PENDING descriptor, ``attempts_used < attempt_limit``, and the independent authority durably records the next ``last_counter`` as ``reserved`` before any BCR byte changes. Effect: ``attempts_used + 1``, ``attempt_counter = reservation.counter``, ``last_counter = reservation.counter``, ``replay_reservation``, ``pending_time_unix``. The commit protocol writes copy 0 prepared, commits the external floor, writes copy 1 prepared, publishes both committed markers, and reads every boundary back before BootContext installation or launch. A maximum counter is rejected before this transition; it is never routed to T-06.
    * - T-05
      - U-Boot
      - PENDING to ACCEPTED
@@ -1048,15 +1192,15 @@ The five slot states are EMPTY, PENDING, ACCEPTED, FAILED, and PINNED. The recor
    * - T-06
      - U-Boot
      - PENDING to FAILED (budget exhausted)
-     - ``attempts_used = attempt_limit`` and no valid success mark. Effect: state FAILED, ``slot_failure_code = 1``, ``selected_slot`` set to the exact current LKG when non-zero, otherwise PINNED recovery. The FAILED descriptor keeps its identity and the permanent tombstone keeps its document ID and payload digest so the same candidate cannot be retried or forked.
+     - ``attempts_used = attempt_limit`` and no valid success mark. Effect: state FAILED, ``slot_failure_code = 1`` (``BOOT_FALLBACK_FAILURE``), ``selected_slot`` set to the exact current LKG when non-zero, otherwise PINNED recovery. The FAILED descriptor keeps its identity and the permanent tombstone keeps its document ID and payload digest so the same candidate cannot be retried or forked. T-06 is budget exhaustion only; counter wrap is HF-15 and code 4 before any transition.
    * - T-07
      - U-Boot
      - PENDING to FAILED (explicit OS failure)
-     - A ``Trusted<BootHealthCore>`` for exactly ``attempt_counter`` passed the complete profile validation and carries ``success = false`` and ``fallback.decision = recover`` with ``target_slot`` in the recomputed rollback set. Effect as T-06 with ``slot_failure_code`` from the core ``fallback.failure_code`` mapping. A core with ``decision = hold`` leaves the slot PENDING and the next boot performs T-04; an invalid or stale core is not an explicit failure and cannot alter state.
+     - A ``Trusted<BootHealthCore>`` for exactly ``attempt_counter`` passed the complete profile validation and carries ``success = false`` and ``fallback.decision = recover`` with ``target_slot`` in the recomputed rollback set. Its ``fallback.failure_code`` must be exactly local code 1 (``BOOT_FALLBACK_FAILURE``); any other value is ``BOOT_STATE_CONSISTENCY_FAILURE`` before T-07. Effect as T-06 with ``slot_failure_code = 1``. A core with ``decision = hold`` leaves the slot PENDING and the next boot performs T-04; an invalid or stale core is not an explicit failure and cannot alter state.
    * - T-08
      - U-Boot
      - PENDING to FAILED (pre-launch validation failure)
-     - The pending slot's manifest is missing, unsigned, expired, fails projection or F-07 promotion validation, not the recorded derived payload digest, or any boot-path artifact fails size or digest. Effect as T-06 with the first stable code from the failure matrix; a missing canonical F-02/F-03 dependency is HOLD/HALT and never a fallback.
+     - The pending slot's manifest is missing, unsigned, expired, fails projection or F-07 promotion validation, not the recorded derived payload digest, or any boot-path artifact fails size or digest. Effect as T-06 with the first stable code from the failure matrix; a missing canonical F-02/F-03 dependency is HOLD and never a fallback.
    * - T-09
      - U-Boot
      - record-level only
@@ -1068,13 +1212,13 @@ The five slot states are EMPTY, PENDING, ACCEPTED, FAILED, and PINNED. The recor
    * - T-11
      - U-Boot
      - none (read-repair)
-     - A stale or invalid copy is rewritten from the selected valid record with its own ``copy_index``, tag, and CRC. ``sequence`` is unchanged. Performed after selection and before any transition commit; a repair failure is logged and does not stop a boot that requires no transition.
+     - A stale or invalid copy is rewritten from the selected valid record with its own ``copy_index``, tag, and CRC. ``sequence`` is unchanged. Performed after selection and before any transition commit; a repair read-back failure returns ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction`` with terminal action ``TA-HALT-NO-LAUNCH``.
    * - T-12
      - U-Boot
      - descriptor overwrite (tombstone)
      - Part of T-03 and T-05: append the prior document ID, one and only one payload digest, generation, lineage, and manifest digest to the authenticated F-02 permanent-tombstone history before replacing a descriptor. An older mark or a document-ID fork can never match again; recycling a descriptor does not delete the history.
 
-State validation is total and runs before selection or any write. ``selected_slot`` may be only a PENDING slot, the exact current LKG ACCEPTED descriptor, or the PINNED recovery descriptor. ``selected_slot`` may never name FAILED, EMPTY, an ACCEPTED descriptor that is not the LKG, an unknown value, or a contradictory descriptor. A PENDING or FAILED descriptor has ``attempt_limit`` in range and ``attempts_used`` within it; ``last_known_good_slot`` is zero or names exactly one ACCEPTED slot; at most one of ``slot-a`` and ``slot-b`` is PENDING; the recovery descriptor is EMPTY or PINNED; an ACCEPTED descriptor has non-zero BCR-S12, BCR-S13, and BCR-S14; and an unkeyed record has exactly the T-01 shape. Every invalid Cartesian combination returns ``BOOT_STATE_CONSISTENCY_FAILURE``, records the first canonical state path, performs no write or launch, and terminates in ``HOLD/HALT``. No assertion that a writer "derived" a field substitutes for validation.
+State validation is total and runs before selection or any write. ``selected_slot`` may be only a PENDING slot, the exact current LKG ACCEPTED descriptor, or the PINNED recovery descriptor. ``selected_slot`` may never name FAILED, EMPTY, an ACCEPTED descriptor that is not the LKG, an unknown value, or a contradictory descriptor. A PENDING or FAILED descriptor has ``attempt_limit`` in range and ``attempts_used`` within it; ``last_known_good_slot`` is zero or names exactly one ACCEPTED slot; at most one of ``slot-a`` and ``slot-b`` is PENDING; the recovery descriptor is EMPTY or PINNED; an ACCEPTED descriptor has non-zero BCR-S12, BCR-S13, and BCR-S14; and an unkeyed record has exactly the T-01 shape. Every invalid Cartesian combination returns ``BOOT_STATE_CONSISTENCY_FAILURE``, records the first canonical state path, performs no write or launch, and terminates in ``HOLD``. No assertion that a writer "derived" a field substitutes for validation.
 
 State validation Cartesian coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1092,42 +1236,44 @@ The design gate generates the complete Cartesian set ``selected_slot ∈ {0, slo
      - FAILED
      - PINNED
    * - 0
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
    * - ``slot-a``
-     - code 34; action=none; terminal=``HOLD/HALT``
+     - code 34; action=none; terminal=``HOLD``
      - code 0; action=T-04 then launch; terminal=``LAUNCH``
      - code 0; action=LKG verify; terminal=``LAUNCH``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
    * - ``slot-b``
-     - code 34; action=none; terminal=``HOLD/HALT``
+     - code 34; action=none; terminal=``HOLD``
      - code 0; action=T-04 then launch; terminal=``LAUNCH``
      - code 0; action=LKG verify; terminal=``LAUNCH``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
    * - ``recovery``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
      - code 0; action=immutable-recovery verify then launch; terminal=``LAUNCH``
    * - unknown
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
-     - code 34; action=none; terminal=``HOLD/HALT``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
+     - code 34; action=none; terminal=``HOLD``
 
-The matrix is exhaustive, not illustrative: each generated case records ``(selected_slot, descriptor states, last_known_good_slot, code, action, terminal_state)`` and the acceptance gate fails if the count is not exactly 2,500, if any tuple is missing or duplicated, or if any legal row lacks a deterministic launch/transition result.
+The matrix is exhaustive, not illustrative: each generated case records ``(selected_slot, descriptor states, last_known_good_slot, code, action, terminal_state)`` and the acceptance gate fails if the count is not exactly 2,500, if any tuple is missing or duplicated, or if any legal row lacks one deterministic launch or transition result.
 
 Two-copy selection and recovery
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-On every boot U-Boot first passes the ratification and device-binding gates, gathers all physical storage matches, and verifies the single same-disk ESP/BCR/BSM tuple before reading slot files. It then reads both copies. A copy is valid only if every check in `Record encoding`_, `atomic-boot-record-mapping`_, `Local failure codes`_, and the total state rules passes, including the live GPT identity and external floor. Selection precedence is: exact F-02 committed record with a valid independent floor and source record over a provisioning-only record; higher authenticated ``last_counter`` over lower; and among equal counters, bytewise equality outside the three copy-specific fields. BCR-07 ``sequence`` and timestamps never participate in authority selection.
+On every boot U-Boot first passes the ratification and device-binding gates, gathers all physical storage matches, and verifies the single same-disk ESP/BCR/BSM tuple before reading slot files. It then reads both copies and the imported floor-authority receipt. A copy is valid only if every check in `Record encoding`_, `atomic-boot-record-mapping`_, `Local failure codes`_, and the total state rules passes, including the live GPT identity. ``BCR-23`` is only the per-copy phase marker; the floor receipt and the canonical record form one transaction key ``(control_set_id, last_counter, replay_reservation_digest, record_digest)``. A transaction with a floor state of ``RESERVED`` is not launch-authoritative; a transaction with a floor state of ``COMMITTED`` is recoverable only when one valid prepared or committed copy carries the exact key. BCR-07 ``sequence`` and timestamps never participate in authority selection.
+
+The external floor is an imported F-02/F-03 authority, not a local file. Its future-ratified ``floor-reservation/v1`` record has exactly ``floor_schema``, ``control_set_id``, ``installation_binding_digest``, ``floor_value``, ``counter``, ``replay_reservation_digest``, ``record_digest``, ``previous_floor``, ``state``, ``reservation_digest``, ``issued_at``, ``expires_at``, ``authority_binding_digest``, and ``burn_log_digest``. ``floor_value`` is the greatest committed counter; ``counter`` is the active candidate counter and is greater than ``floor_value`` only while ``RESERVED``. The only durable states are ``READY``, ``RESERVED``, ``COMMITTED``, and ``BURNED``. ``READY -> RESERVED`` and ``COMMITTED -> RESERVED`` allocate one counter greater than both the floor and every burned counter; ``RESERVED -> COMMITTED`` is one authenticated compare-and-swap and is the transaction linearization point; a failed or abandoned reservation performs ``RESERVED -> BURNED`` and retains its counter in the append-only burn log. ``BURNED -> RESERVED`` is permitted only with a new, greater counter. ``RESERVED`` never authorizes launch. ``COMMITTED`` authorizes only repair or publication of its exact transaction until both BCR copies carry that key and are read back; it never authorizes a second reservation while publication is incomplete. The floor authority's atomic receipt and its exact identity lock remain BLK-19; an unavailable or mismatched authority has the single ratification result in the failure matrix.
 
 .. list-table::
    :header-rows: 1
@@ -1137,61 +1283,139 @@ On every boot U-Boot first passes the ratification and device-binding gates, gat
      - Observation
      - Decision
    * - C2-01
-     - Both valid, equal authenticated ``last_counter``, equal content
-     - Use the record; no repair
+     - Floor ``COMMITTED`` for the current key; both copies are committed with equal content and key
+     - Use the current record; no repair and no new reservation
    * - C2-02
-     - Both valid, equal authenticated ``last_counter``, different content
-     - ``OMARCHY_BCR_DIVERGENT``; no write of either copy and no record is selected. Recovery is permitted only from the one immutable compiled or independently authenticated recovery identity, not from either copy; if it is unavailable or any full check fails, ``BOOT_RECOVERY_IDENTITY_FAILURE`` and HALT
+     - Both copies are committed with the same counter but different current transaction content
+     - ``OMARCHY_BCR_DIVERGENT`` at ``bcr.copy_divergence``; no copy is selected and no write occurs
    * - C2-03
-     - Both valid, authenticated ``last_counter`` values differ by exactly 1
-     - Use the higher; T-11 repairs the lower (interrupted commit between copies)
+     - Floor ``COMMITTED`` for the current key; one current committed copy and one invalid or older-key copy
+     - Use the current committed copy as the canonical source; repair the other copy with the exact current transaction and publish both markers. A repair read-back failure is ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction`` and launches nothing
    * - C2-04
-     - Both valid, authenticated ``last_counter`` values differ by more than 1
-     - Use the higher; T-11 repairs the lower; diagnostic note that one copy lagged more than one commit
+     - Floor ``COMMITTED`` for the current key; one current committed copy and one current prepared copy
+     - Complete the prepared copy's commit marker, read it back, and select the resulting current record
    * - C2-05
-     - One valid, the other fails any validity check
-     - Use the valid copy; T-11 repairs the other
+     - Floor ``COMMITTED`` for the current key; one current prepared copy and one invalid or older-key copy
+     - Use the prepared copy as the canonical source, write the other copy prepared, publish both markers in order, and select the resulting current record. A repair read-back failure is ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction`` and launches nothing
    * - C2-06
-     - One valid, the other partition cannot be resolved by the identity tuple
-     - Use the valid copy read-only only when its external floor, source record, and device binding verify; no repair. Commits are impossible because a commit needs both copies, so a transition is refused with ``BOOT_STORAGE_IDENTITY_FAILURE``; the exact current LKG may boot only if all launch checks pass, otherwise the immutable recovery identity is required or HALT
+     - Floor ``RESERVED`` for a current key; one old committed copy and one prepared copy carrying the reserved key
+     - Burn the reservation, retain the old committed copy as authority, and repair the prepared copy from it; no transition is launched
    * - C2-07
-     - Zero valid, both partitions resolved
-     - No write and no BCR is selected. Verify one immutable compiled or independently authenticated recovery identity/digest plus the complete manifest, artifact, board, policy, anti-downgrade, F-02/F-03, and F-07 rules. If the identity or any dependency is unavailable or mismatched, ``BOOT_RECOVERY_IDENTITY_FAILURE`` and HALT. There is no board-plus-signature fallback and no hidden emergency envelope
+     - Floor ``COMMITTED`` with zero current prepared or committed copies for its key
+     - ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction``; no write and no launch
    * - C2-08
-     - GPT invalid or neither partition resolved
-     - No write; ``BOOT_STORAGE_IDENTITY_FAILURE`` and HALT with the GPT or exact-match failure printed; the ESP and all slot artifacts are untrusted
+     - Zero valid copies, floor ``READY`` or ``BURNED`` with no active transaction, and the immutable recovery identity verifies
+     - Launch the PINNED recovery descriptor after its complete checks; no BCR write occurs
    * - C2-09
-     - A copy whose ``copy_index`` or partition GUID does not match the partition it was read from
-     - That copy is invalid (transplant); the case reduces to C2-05 or C2-07
+     - Zero valid copies, floor ``READY`` or ``BURNED`` with no active transaction, and the immutable recovery identity fails verification
+     - ``BOOT_RECOVERY_IDENTITY_FAILURE`` at ``recovery.immutable_identity``; no write and no launch
    * - C2-10
-     - A keyed valid copy and an unkeyed valid copy
-     - The keyed, floor-bound, source-authenticated copy wins only when all identity checks pass; the unkeyed copy is treated as provisioning-only and cannot authorize a release transition. Re-provisioning requires an approved installer plan and fresh external binding; destroying keyed copies is never a release recovery operation
+     - GPT or exact partition identity cannot be resolved
+     - ``BOOT_STORAGE_IDENTITY_FAILURE`` at ``storage.esp.matches``; no BCR or slot bytes are read
    * - C2-11
-     - Power loss during the copy 0 write of a commit
-     - Copy 0 is torn and invalid, copy 1 holds the previous state; C2-05 selects the previous state; the transition was not committed and nothing was launched
+     - A copy's ``copy_index`` or partition GUID disagrees with its physical partition
+     - ``BOOT_RECORD_SOURCE_FAILURE`` at ``bcr.source_record``; the copy is discarded and no record is selected
    * - C2-12
-     - Power loss after copy 0 and during the copy 1 write
-     - Copy 0 holds the new state, copy 1 is torn; C2-05 selects the new state and repairs copy 1; the transition is committed because launch waits for both copies
+     - A keyed record and an unkeyed provisioning record are both readable
+     - Select the keyed record only when its current floor key is ``COMMITTED`` and both-copy rules pass; the unkeyed record is rejected as non-release state
    * - C2-13
-     - Power loss during a T-11 repair
-     - The repaired copy is torn; next boot is C2-05 again with the same outcome
+     - After reset, floor ``RESERVED`` and the old committed copy is intact
+     - Perform the idempotent burn, repair the other copy from the old record, and retain the old record; no launch occurs
    * - C2-14
-     - Both copies valid and both unkeyed with the T-01 shape
-     - Accepted only if no keyed copy exists; the first U-Boot commit performs T-02
+     - After reset, floor ``COMMITTED`` and one matching prepared copy remains
+     - Resume the same transaction without a new reservation, finish both committed markers, and launch only after read-back
 
-Commit procedure, executed for every transition in T-02 through T-09:
+Commit protocol and crash recovery
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Re-resolve both partitions with the full identity tuple; abort with ``BOOT_RECORD_COMMIT_FAILURE`` and no write if either fails.
-2. Reserve the next independent monotonic ``last_counter`` and replay reservation; a reservation is burned on every failure and is never reused.
-3. Build the complete canonical F-02 record in memory with the exact ``journal_schema``, ``commit_state``, source record, device binding, ``record_digest``, ``last_counter``, replay reservation, profile projection, and permanent tombstone root; compute the trailer sequence, tag, and CRC for copy 0.
-4. Write 4,096 bytes at block 0 of copy 0; issue a device flush (NI-08); read the block back and compare bytewise; abort with ``BOOT_RECORD_COMMIT_FAILURE`` on any mismatch, leaving no new authority.
-5. Recompute tag and CRC for copy 1; write, flush, read back, and compare. A failure leaves the new state uncommitted and the current boot does not launch; the next boot may use only the previously committed F-02 record or immutable recovery identity according to C2.
-6. Commit the independent floor reservation and verify its authenticated receipt. A failure is ``BOOT_COUNTER_FAILURE`` with no launch.
-7. Only after both copies and the independent reservation are durable does U-Boot install BootContext and launch.
+The following protocol is executed for every transition in T-02 through T-09. It is one linearizable state machine, not a choice between copy order and floor order:
 
-Writer serialization: U-Boot runs single-threaded, and the writer keeps a static in-progress flag; a re-entrant call returns code 17 without writing. Only ``omarchy release`` reaches the writer. The diagnostic subcommands, the EFI runtime, and any other command have no path to it. Alternate-copy ordering is fixed (copy 0 then copy 1) so that every interrupted state is one of C2-11 through C2-13.
+1. Re-resolve both partitions with the full identity tuple and read the authenticated floor receipt before any BCR write. A physical-resolution failure selects ``(BOOT_STORAGE_IDENTITY_FAILURE, storage.esp.matches, physical-resolution, HOLD)`` with ``TA-HOLD-NO-WRITE``; an unreadable or malformed floor transaction at this seam selects ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)`` with ``TA-HALT-NO-LAUNCH``. Either result writes nothing.
+2. Reserve the next independent monotonic ``last_counter`` and replay reservation. The floor authority durably records ``state = RESERVED`` and the full transaction key before any BCR byte changes; this counter is burned on every failed transaction and is never reused. A reservation failure selects the durable-commit tuple above and launches nothing.
+3. Build the complete canonical F-02 record in memory with ``commit_state = prepared``, the exact source record, device binding, ``record_digest``, floor key, profile projection, and permanent tombstone root. Write copy 0, flush, read back, and compare bytewise. Copy 1 remains the prior committed record at this point.
+4. Atomically compare-and-swap the floor receipt from ``RESERVED`` to ``COMMITTED`` for this exact transaction key and verify the authenticated receipt. The floor's ``COMMITTED`` state is the sole linearization point; it makes the transaction the repair authority, but not launch authority.
+5. Write copy 1 with the same prepared transaction, flush, read back, and compare. A mismatch selects the durable-commit tuple above because copy 0 and the committed floor carry the exact key.
+6. Change copy 0's marker to ``committed``, write, flush, read back, and compare. Copy 1 remains prepared until this read-back succeeds; any failure selects the durable-commit tuple above.
+7. Change copy 1's marker to ``committed``, write, flush, read back, and compare. Any failure selects the durable-commit tuple above. The transaction is launch-eligible only after this read-back and a bytewise equality check outside ``copy_index``, ``auth_tag``, and ``crc32c``.
+8. Only after both committed copies and the committed floor are durable does U-Boot install BootContext and launch. Any reset before this point has the exact no-launch outcome in the power-cut table.
 
-Power-loss points that the sandbox suite must inject, each with the expected next-boot case: before step 1 (previous state), while building the record before step 4 (previous state), during step 4 copy 0 (C2-11), between the copy 0 read-back and step 5 (C2-03), during step 5 copy 1 (C2-12), after step 7 before the payload runs (attempt consumed, C2-01), during GRUB (attempt consumed, no mark), during Linux before the mark write (no mark), during the mark container write (SM-04), after the mark write before the next boot (SM-16 on the next boot), during the T-05 commit (C2-11 or C2-12 with the mark still present, SM-17 on the following boot), and during the mark clear (SM-17). Every cut point captures both copies, the external reservation state, the BSM header, and the terminal code; no cut point is evidence until the fixture executes.
+After every reset, repair reads the floor receipt first. A ``RESERVED`` receipt is atomically changed to ``BURNED`` with its counter retained in ``burn_log_digest``; the old committed record remains the only record authority and any prepared reservation-key copy is overwritten from that old record. A ``COMMITTED`` receipt requires one current-key prepared or committed copy; U-Boot uses that copy as the canonical source, reconstructs the other copy, and completes the fixed marker order without a new reservation. A ``READY`` or ``BURNED`` receipt permits only the current fully committed record or the PINNED recovery identity. A malformed receipt, an impossible state transition, or a ``COMMITTED`` receipt with no current-key copy returns ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction`` and launches nothing. Repair never allocates a new counter, changes a manifest, selects a different slot, or treats copy order as authority. The recovery action is selected solely by the observed authenticated floor state and current transaction key, so it is idempotent across repeated resets.
+
+Writer serialization: U-Boot runs single-threaded, and the writer keeps a static in-progress flag; a re-entrant call returns ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction`` during ``durable-commit`` with result ``HALT`` and terminal action ``TA-HALT-NO-LAUNCH`` without writing. Only ``omarchy release`` reaches the writer. The diagnostic subcommands, the EFI runtime, and every other command have no path to it. The durable marker order is fixed: floor ``RESERVED``, copy 0 ``prepared``, floor ``COMMITTED``, copy 1 ``prepared``, copy 0 ``committed``, copy 1 ``committed``.
+
+The sandbox injects exactly twelve named power cuts. A cut is made at the named durable boundary, and the next-boot authority is the single row below. ``NO_LAUNCH`` describes the interrupted boot; it is not a release result and cannot be replaced by a recovery guess. CP-04 cuts the atomic floor compare-and-swap before its read-back; the authenticated read-back is the sole observation used by the total repair dispatcher: ``RESERVED`` is burned and ``COMMITTED`` is resumed, while any third byte state is invalid and returns ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction``. This is one deterministic phase rule, not an unresolved alternative expected result. T-05 uses the same CP-01 through CP-10 BCR protocol; it adds no thirteenth BCR case.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 9 24 23 30 14
+
+   * - Cut
+     - Injection boundary
+     - Durable marker after reset
+     - Next-boot authority and action
+     - Interrupted boot
+   * - CP-01
+     - Before floor reservation
+     - Previous committed floor and both previous committed copies
+     - Previous committed record; retry the same transition with a fresh reservation
+     - ``NO_LAUNCH``
+   * - CP-02
+     - After floor reservation, before copy 0 prepared write
+     - Floor ``RESERVED``; both previous committed copies
+     - Burn reservation; previous committed record remains authority
+     - ``NO_LAUNCH``
+   * - CP-03
+     - During copy 0 prepared write
+     - Floor ``RESERVED``; copy 0 invalid; copy 1 previous committed
+     - Burn reservation; repair copy 0 from copy 1; previous committed record remains authority
+     - ``NO_LAUNCH``
+   * - CP-04
+     - During atomic floor commit
+     - Floor receipt read-back contains the one atomically durable state; copy 0 prepared; copy 1 previous committed
+     - Apply the floor-state dispatcher: burn a ``RESERVED`` reservation and retain the old record, or resume a ``COMMITTED`` reservation using copy 0; an invalid third state is ``BOOT_RECORD_COMMIT_FAILURE`` at ``bcr.commit.transaction``
+     - ``NO_LAUNCH``
+   * - CP-05
+     - After floor commit, before copy 1 prepared write
+     - Floor ``COMMITTED``; copy 0 prepared; copy 1 previous committed
+     - Resume the keyed transaction; write copy 1 prepared before marker publication
+     - ``NO_LAUNCH``
+   * - CP-06
+     - During copy 1 prepared write
+     - Floor ``COMMITTED``; copy 0 prepared; copy 1 invalid
+     - Resume from copy 0 prepared; write copy 1 prepared and continue the same transaction
+     - ``NO_LAUNCH``
+   * - CP-07
+     - After copy 1 prepared read-back, before copy 0 committed marker
+     - Floor ``COMMITTED``; both copies prepared with the same key
+     - Publish copy 0 committed, then copy 1 committed; no new reservation
+     - ``NO_LAUNCH``
+   * - CP-08
+     - During copy 0 committed marker write
+     - Floor ``COMMITTED``; copy 0 invalid; copy 1 prepared
+     - Use copy 1 prepared as the transaction source; publish copy 0 committed, then copy 1 committed
+     - ``NO_LAUNCH``
+   * - CP-09
+     - During copy 1 committed marker write
+     - Floor ``COMMITTED``; copy 0 committed; copy 1 invalid
+     - Use copy 0 committed as the transaction source; repair copy 1 and verify equality
+     - ``NO_LAUNCH``
+   * - CP-10
+     - After both committed-copy read-backs, before BootContext installation
+     - Floor ``COMMITTED``; both copies committed and equal
+     - New committed record is authoritative; next boot proceeds from the committed descriptor
+     - ``NO_LAUNCH``
+   * - CP-11
+     - During BSM core/mark/header publication
+     - BCR committed; BSM header invalid
+     - BSM is rejected; pending descriptor remains pending and next boot consumes its next budget attempt
+     - ``NO_LAUNCH``
+   * - CP-12
+     - During BSM clear after T-05 BCR commit
+     - BCR accepted; BSM header remains written
+     - SM-17 clears the matching mark idempotently; accepted descriptor remains authoritative
+     - ``NO_LAUNCH``
+
+Every CP row captures both BCR copies, the floor receipt, the BSM header, the selected descriptor, and the terminal code. The cut-point model is design-only until the sandbox executes all twelve rows; absent execution is ``NOT EXECUTABLE``.
 
 Success-mark transport
 ----------------------
@@ -1397,8 +1621,8 @@ Mark evaluation cases
      - Mark ``core_digest`` differs from the recomputed ``D_core``
      - ``BOOT_CONTEXT_MISMATCH``; hold; clear
    * - SM-15
-     - ``checks_digest`` or ``rollback_set_digest`` differs from U-Boot's recomputation; a required or allowed check is absent, duplicated, reordered, has the wrong class, measurement name, unit, bound, source evidence, failure limit, or is not ``pass``
-     - ``BOOT_PROFILE_FAILURE`` or ``BOOT_REQUIRED_CHECK_FAILURE``; hold; clear
+     - ``checks_digest`` differs from U-Boot's recomputation
+     - ``BOOT_REQUIRED_CHECK_FAILURE``; hold; clear
    * - SM-16
      - Every check passes and the selected descriptor is PENDING at that counter
      - T-05 committed, then clear
@@ -1415,11 +1639,11 @@ Mark evaluation cases
      - Core ``fallback.target_slot`` outside the recomputed rollback set or rollback set empty when recovery is required
      - ``BOOT_FALLBACK_FAILURE``; hold; clear
    * - SM-21
-     - ``marked_at`` or ``expires_at`` outside the freshness policy
+     - ``marked_at`` outside the freshness policy
      - ``BOOT_FRESHNESS_FAILURE``; hold; clear. If BLK-06 is unavailable or mismatched, no counter-only substitute is allowed and the release path HALTs
    * - SM-22
-     - ``Trusted<BootHealthCore>`` exists but the mark is absent, separately invalid, or not bound to that exact core
-     - ``BOOT_MARKER_AUTH_FAILURE`` or ``BOOT_CONTEXT_MISMATCH``; no T-05; hold; clear
+     - ``Trusted<BootHealthCore>`` exists but the mark is absent
+     - ``BOOT_MARKER_AUTH_FAILURE``; no T-05; hold; clear
    * - SM-23
      - Mark is otherwise valid but the core was not constructed from the complete manifest-declared profile and source record
      - ``BOOT_PROFILE_FAILURE``; no T-05; hold; clear
@@ -1439,12 +1663,12 @@ U-Boot's entry inputs from the opaque predecessor are exactly: a device-tree blo
 Sequence of the release command
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-0. Verify the exact ratified F-02/F-03 contract, generated bindings, authenticated opaque-predecessor interface envelope, device/installation binding, and independent monotonic-floor receipt. Missing or mismatched inputs produce ``HOLD/HALT`` before storage or slot access.
+0. Verify the exact ratified F-02/F-03 contract, generated bindings, authenticated opaque-predecessor interface envelope, device/installation binding, and independent monotonic-floor receipt. Missing or mismatched inputs produce ``HOLD`` before storage or slot access.
 1. Resolve the board: read root ``compatible`` and ``model`` from the working device tree, match exactly one ``board-registry/v1`` board under ``identity_match.linux`` (delivery form BLK-11), and derive ``board_id``. Zero or more than one match is ``OMARCHY_BOARD_MISMATCH`` and HALT.
 2. Resolve storage: gather all GPT disks and all partitions; resolve the Apple ESP by gathering every partition matching the exact ``asahi,efi-system-partition`` UUID and require exactly one match. Resolve BCR-0, BCR-1, and BSM by their complete typed identity tuples and require one live GPT disk GUID and parent/stable-ID relation for all of them. Zero or multiple ESP matches, duplicate UUIDs, or cross-disk tuples are ``BOOT_STORAGE_IDENTITY_FAILURE`` before any slot file is read. The current first-ESP fallback in ``asahi_esp_devpart()`` is excluded from the release profile (NI-13).
 3. Read and select the BCR per `Two-copy selection and recovery`_; perform T-11 only when it is an authenticated same-disk repair and the independent floor permits it.
 4. Consume and evaluate the BSM per `Mark evaluation cases`_; construct the trusted core first and the separate mark second; commit T-05 or T-07 only if both pass, then clear the container.
-5. Stage detection: gather both ``slot-a`` and ``slot-b`` candidates that are not the exact current PENDING or LKG descriptors. Require exactly one F-07-authorized eligible candidate, including its promotion receipt, generation, lineage, rollback, board/profile, artifact, and anti-downgrade checks. Zero candidates means no staging; more than one is ``BOOT_CANDIDATE_CONFLICT`` with no PENDING write and ``HOLD/HALT``.
+5. Stage detection: gather both ``slot-a`` and ``slot-b`` candidates that are not the exact current PENDING or LKG descriptors. Require exactly one F-07-authorized eligible candidate, including its promotion receipt, generation, lineage, rollback, board/profile, artifact, and anti-downgrade checks. Zero candidates means no staging; more than one is ``BOOT_CANDIDATE_CONFLICT`` with no PENDING write and ``HOLD``.
 6. Select only the total state-machine outcomes: if ``selected_slot`` is exactly PENDING and ``attempts_used < attempt_limit``, reserve the next external counter and commit T-04; if its budget is exhausted, commit T-06 and re-select; if ``selected_slot`` is the exact LKG ACCEPTED descriptor, verify it and use T-09 on failure; if ``selected_slot`` is PINNED recovery, verify the immutable recovery identity and full recovery policy. FAILED, EMPTY, non-LKG ACCEPTED, unknown, and contradictory states are ``BOOT_STATE_CONSISTENCY_FAILURE`` and HALT.
 7. Verify the slot: strict-parse and canonicalize the manifest, derive only ``sha256(JCS(payload))``, verify the signer and context, run the generated F-02 projection validator, verify the exact F-07 promotion receipt, then construct ``Trusted<PlatformManifest>``. Compare the derived digest to BCR-S08; check channel, board target, registry digest, consumer API, complete profile, anti-downgrade policy, and every declared artifact. On failure commit T-08 only when a valid transition is permitted; never replace a missing canonical dependency with recovery or a stable signature.
 8. Install the BootContext into a working copy of the device tree per `BootContext transport`_ (release mode only; T-10 boots install the diagnostic marker instead).
@@ -1456,7 +1680,14 @@ Steps 1 through 8 complete before any GRUB byte executes. No step reads an envir
 GRUB artifact identity and configuration binding
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The slot layout on the ESP is fixed: ``EFI/OMARCHY/slots/A/``, ``EFI/OMARCHY/slots/B/``, and ``EFI/OMARCHY/recovery/``. Each directory contains ``manifest.json`` (the complete ``omarchy-signed/v1`` envelope of the slot manifest) and the artifact files named by that manifest. The file name of each artifact inside the slot is exactly its manifest ``artifact_id`` with the ``artifact:`` prefix removed; the manifest is the only mapping from role to file. The exact artifact IDs and media types for the GRUB image, the GRUB configuration, the U-Boot image, the kernel image, the initramfs, and the DTB set are BLK-09. Until ratified, the roles are referred to here by manifest ``kind`` and position, never by an invented file name.
+The slot layout on the ESP is fixed: ``EFI/OMARCHY/slots/A/``, ``EFI/OMARCHY/slots/B/``, and ``EFI/OMARCHY/recovery/``. Each directory contains ``manifest.json`` (the complete ``omarchy-signed/v1`` envelope of the slot manifest) and the artifact files named by that manifest. The file name of each artifact inside the slot is exactly its manifest ``artifact_id`` with the ``artifact:`` prefix removed; the manifest is the only mapping from role to file. The exact artifact IDs and media types for the GRUB image, the GRUB configuration, the U-Boot image, the kernel image, the initramfs, and the DTB set are BLK-09. Until ratified, the roles are referred to here by manifest ``kind`` and position, never by an invented file name. Every future BLK-09 value must satisfy `Artifact ID grammar and safe join`_.
+
+Artifact ID grammar and safe join
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The future-ratified ``artifact_id`` grammar is strict and byte-oriented: ``artifact_id = "artifact:" name``; ``name = ALNUM_LOWER | ALNUM_LOWER ALNUM_MIDDLE{0,62} ALNUM_LOWER``; ``ALNUM_LOWER`` is one ASCII byte in ``a`` through ``z`` or ``0`` through ``9``; and ``ALNUM_MIDDLE`` is one byte in ``a`` through ``z``, ``0`` through ``9``, ``.``, ``-``, or ``_``. The prefix is exactly nine ASCII bytes, the name is 1 through 64 bytes, and the complete ID is 10 through 73 bytes. The first and last name bytes are always lowercase ASCII alphanumeric, so ``.``, ``..``, leading/trailing ``.``, ``-``, and ``_`` are rejected by the grammar. Uppercase ASCII, non-ASCII and Unicode bytes, control bytes, NUL, ``/``, and ``\`` are rejected before any string conversion. The grammar has one path component only, so directory depth is exactly zero after the fixed slot root. The exact BLK-09 role values are not supplied by this document; the future import must prove that every value fits this grammar.
+
+Safe join is bounded and performed only after the manifest is trusted. U-Boot selects exactly one literal root from ``EFI/OMARCHY/slots/A``, ``EFI/OMARCHY/slots/B``, and ``EFI/OMARCHY/recovery``; strips exactly the nine-byte prefix; checks the byte length, every byte, first/last byte, separator count, and NUL absence in bounded memory; checks ``root_length + 1 + name_length <= 128`` with overflow-safe arithmetic; and constructs exactly ``root + "/" + name``. It performs no normalization, case folding, separator substitution, percent decoding, Unicode normalization, prefix matching, or fallback filename lookup. The filesystem operation is no-follow and requires one regular file whose containing directories are not symlinks or mount points; a symlink, directory, device node, mount point, or other non-regular object is rejected before file bytes are read. The declared size and content digest are then checked. A failed grammar or safe-join check is ``BOOT_ARTIFACT_ID_FAILURE`` at ``manifest.artifact_id`` during artifact-admission with result ``REJECT`` and terminal action ``TA-REJECT-OBJECT``. Duplicate or missing role cardinality is ``BOOT_ARTIFACT_ROLE_FAILURE`` at ``manifest.artifact_role``; source, recipe, or content provenance is ``BOOT_PROVENANCE_FAILURE`` at ``manifest.provenance_relation``. The exact injected slash, backslash, NUL, dot, dotdot, Unicode, uppercase, symlink, device, overlength, and depth cases are HF-65 through HF-75.
 
 U-Boot identifies the GRUB image as the single ``components.boot_stack.artifacts[]`` entry whose ``kind = boot-image/v1`` and whose ``media_type`` is the ratified GRUB EFI media type (BLK-09), and identifies the GRUB configuration as the single entry whose ``media_type`` is the ratified GRUB configuration media type (BLK-09). Both are loaded into memory and digest-verified before launch; the configuration is passed to GRUB by being present in the slot directory at the path GRUB is built to read, and GRUB is built with its prefix fixed to the slot directory so that no global ``grub.cfg`` outside the slot is consulted.
 
@@ -1486,7 +1717,7 @@ Installation by U-Boot: after the T-04 commit, copy the control device tree, add
 
 Preservation by GRUB: GRUB is required to forward the ``EFI_FDT_GUID`` table it received to the kernel's EFI stub, adding only its own ``/chosen`` properties for the initramfs and command line. This is the behavior expected of the GRUB arm64 EFI Linux loader when ``devicetree`` is not used, and it is exactly what experiment E-01 must prove for the pinned GRUB artifact before any implementation promotion. GRUB has no validation role and no ability to make a context trustworthy; it can only preserve or damage it.
 
-Validation by the Linux consumer (K-01 owned): read the three properties from ``/proc/device-tree/chosen``; require ``boot-mode = release``; recompute and compare the SHA-256 property; strictly parse the record under the bounded boot binding; resolve the same exact physical disk and typed parent/stable-ID relation; read both BCR copies read-only, select by the same precedence, verify the complete F-02 journal fields and independent floor, and require BCR-24/BCR-25/BCR-27/BCR-28/BCR-29 to equal the context fields; require the descriptor tuple for ``slot_id`` to equal every record field; construct ``Trusted<AtomicBootRecord>`` through the generated F-02 constructor and then ``Trusted<BootContext>`` through the only constructor. Any failure is ``TRUST_BOUNDARY_FAILURE`` or the stable code from `Failure code/path/phase/result matrix`_, the health writer refuses to run, and no container write occurs.
+Validation by the Linux consumer (K-01 owned): read the three properties from ``/proc/device-tree/chosen``; require ``boot-mode = release``; recompute and compare the SHA-256 property; strictly parse the record under the bounded boot binding; resolve the same exact physical disk and typed parent/stable-ID relation; read both BCR copies read-only, select by the same precedence, verify the complete F-02 journal fields and independent floor, and require BCR-24/BCR-25/BCR-27/BCR-28/BCR-29 to equal the context fields; require the descriptor tuple for ``slot_id`` to equal every record field; construct ``Trusted<AtomicBootRecord>`` through the generated F-02 constructor and then ``Trusted<BootContext>`` through the only constructor. Any failure selects the single stable code from `Failure code/path/phase/result matrix`_; the health writer refuses to run, and no container write occurs.
 
 Rejection by component for each failure:
 
@@ -1561,9 +1792,13 @@ Future path ``cmd/omarchy.c`` with the state machine in ``boot/omarchy_slot.c`` 
      - No
      - Stops with the diagnostic census displayed
 
-HALT behavior is deterministic: print the local code string, both copies' census, the slot that was attempted, and the reason; then drop to the console with the banner ``OMARCHY RELEASE BOOT HALTED: manual actions are untrusted``. The release diagnostic allowlist is generated as ``release-command-allowlist/v1`` from the resolved release ``.config`` and the complete command-dispatch inventory. Its declared set is exactly ``omarchy``, ``reset``, and ``help``. It records every enabled command object, hidden command, alias, dynamic subcommand, and Kconfig-selected dispatch object; a command not in that set is ``RELEASE_COMMAND_CLOSURE_FAILURE`` and fails the build/design gate. The current tree has no resolved release ``.config`` or generated inventory, so this is an unimplemented gate, not a three-command result.
+HALT behavior is deterministic: print the local code string, both copies' census, the slot that was attempted, and the reason; then drop to the console with the banner ``OMARCHY RELEASE BOOT HALTED: manual actions are untrusted``. The release diagnostic allowlist is generated as ``release-command-allowlist/v1`` from the resolved release ``.config`` and the complete command-dispatch inventory. Its declared set is exactly ``omarchy``, ``usb``, ``reset``, and ``help``. ``usb`` is present because the immutable preboot string invokes ``usb start`` to initialize the USB HID keyboard; it is not a storage or boot selector. The inventory records every enabled command object, hidden command, alias, dynamic subcommand, and Kconfig-selected dispatch object; a command not in the four-item set is ``RELEASE_COMMAND_CLOSURE_FAILURE`` and fails the build gate. The current tree has no resolved release ``.config`` or generated inventory, so this is an unimplemented gate, not a four-command result.
 
-The generated inventory explicitly covers inherited ``font`` and ``smbios`` commands; generic boot, bootflow, bootmeth, EFI boot manager, direct EFI, direct kernel, removable-media, USB, NVMe, filesystem, serial-load, network, PXE, DHCP, media, environment, EFI-variable, script, hidden, alias, and dynamically registered commands. Each category must be absent from the resolved release dispatch inventory except for the explicitly allowed diagnostic set. The allowlist validator fails for any enabled command outside the set, including one introduced through a Kconfig default or a command object not named in the static table; enumeration order is never authority.
+The generated inventory explicitly covers inherited ``font`` and ``smbios`` commands; generic boot, bootflow, bootmeth, EFI boot manager, direct EFI, direct kernel, removable-media, NVMe, filesystem, serial-load, network, PXE, DHCP, media, environment, EFI-variable, script, hidden, alias, and dynamically registered commands. The USB category has exactly one permitted dispatch object, ``usb``, and its only release invocation is the immutable ``usb start`` preboot string. Every category other than the four allowlisted objects must be absent from the resolved release dispatch inventory. The allowlist validator fails for any enabled command outside the set, including one introduced through a Kconfig default or a command object not named in the static table; enumeration order is never authority.
+
+The pinned source closes the manual keyboard path at the command seam: ``common/main.c`` executes the immutable ``preboot`` string when ``CONFIG_USE_PREBOOT=y``; ``cmd/Kconfig`` and ``cmd/Makefile`` compile and dispatch ``usb`` only when ``CONFIG_CMD_USB=y``; ``cmd/usb.c`` implements ``usb start`` by calling ``usb_init()``; and ``board/apple/mac/mac.env`` supplies ``stdin=serial,usbkbd,spikbid,mtpkbd``. The release profile therefore compiles ``CONFIG_CMD_USB=y``, keeps ``CONFIG_USB_KEYBOARD`` and the Apple keyboard options from the baseline, and sets ``CONFIG_USB_STORAGE=n``. After ``usb start`` initializes HID, the keyed autoboot stop string is the only automatic-to-manual boundary. A stopped console is untrusted and can invoke only the four allowlisted top-level command objects; no USB block device can become a boot source.
+
+The resolved dispatch inventory is a set of top-level command objects, not a count or registration order. Each entry is the tuple ``(top_level_name, registration_source, selected_kconfig_symbols, hidden, aliases, dynamic_subcommands)``. The release closure guard expands every compiled command object, hidden command, alias, and dynamically registered object and requires the set of ``top_level_name`` values to equal exactly ``{omarchy, usb, reset, help}``; ``omarchy`` then has exactly the five subcommands in the command-surface table. A planted ``CONFIG_CMD_USB=n`` with ``preboot=usb start``, a mutable preboot value, an inherited ``font`` or ``smbios`` object, or any command outside that set is ``RELEASE_COMMAND_CLOSURE_FAILURE`` at ``release_command_allowlist.enabled_command`` during ``release-profile`` with result ``BUILD_FAIL`` and terminal action ``TA-BUILD-FAIL``. The guard records the resolved ``.config`` digest, inventory digest, and allowlist digest as one tuple; no inventory result is inferred from the defconfig text. Until those generated values exist, the seam remains NOT IMPLEMENTED.
 
 .. list-table::
    :header-rows: 1
@@ -1588,6 +1823,10 @@ The generated inventory explicitly covers inherited ``font`` and ``smbios`` comm
    * - Network and environment
      - Enumerate network, PXE, DHCP, script, save/import/export/edit/run/source, and EFI-variable dispatch
      - ``CONFIG_NO_NET``, ``CONFIG_CMD_*NET*``, ``CONFIG_CMD_SOURCE``, ``CONFIG_ENV_*``, ``CONFIG_EFI_*``
+     - ``RELEASE_COMMAND_CLOSURE_FAILURE``; build fails
+   * - USB preboot
+     - Exactly the ``usb`` command object and the immutable ``usb start`` invocation; no storage dispatch
+     - ``CONFIG_CMD_USB=y``, ``CONFIG_USB_STORAGE=n``
      - ``RELEASE_COMMAND_CLOSURE_FAILURE``; build fails
 
 Kconfig symbols
@@ -1639,8 +1878,8 @@ Future defconfig ``configs/apple_omarchy_release_defconfig`` (absent, NI-01) and
      - ``y``
      - Physical-presence stop string; secrecy is not claimed and the console is untrusted by construction
    * - ``CONFIG_USE_PREBOOT``
-     - ``y`` with ``preboot=usb start``
-     - USB keyboards for manual recovery only
+     - ``y`` with immutable ``preboot=usb start``
+     - ``cmd/Kconfig``, ``cmd/Makefile``, ``cmd/usb.c``, and ``common/main.c`` make the invocation executable; it initializes HID before keyed autoboot polling
    * - ``CONFIG_USB_STORAGE``, ``CONFIG_CMD_USB_MASS_STORAGE``
      - ``n``
      - No USB block devices exist in the release image
@@ -1683,15 +1922,18 @@ Future defconfig ``configs/apple_omarchy_release_defconfig`` (absent, NI-01) and
    * - ``CONFIG_CMD_SELECT_FONT``, ``CONFIG_CMD_SMBIOS``
      - ``n``
      - Explicitly removes the inherited ``font`` and ``smbios`` commands; the generated dispatch inventory must still verify their absence
-   * - ``CONFIG_CMD_USB``, ``CONFIG_CMD_MMC``, ``CONFIG_CMD_SCSI``, ``CONFIG_CMD_DFU``, ``CONFIG_CMD_FASTBOOT``, all network/PXE/DHCP command symbols
+   * - ``CONFIG_CMD_USB``
+     - ``y``
+     - Required by ``preboot=usb start``; the resulting ``usb`` dispatch object is the only allowlisted non-Omarchy diagnostic primitive
+   * - ``CONFIG_CMD_MMC``, ``CONFIG_CMD_SCSI``, ``CONFIG_CMD_DFU``, ``CONFIG_CMD_FASTBOOT``, all network/PXE/DHCP command symbols
      - ``n``
      - Removes removable, media, provisioning, and network command paths; any symbol not named here is caught by the exhaustive allowlist
    * - ``CONFIG_FWU_MULTI_BANK_UPDATE``, ``CONFIG_BOOTCOUNT_LIMIT``
      - ``n``
      - The generic FWU trial counter and the environment bootcount are not the Omarchy state machine
-   * - ``CONFIG_NVME_APPLE``, ``CONFIG_OF_UPSTREAM_BUILD_VENDOR``, keyboard and video options
+   * - ``CONFIG_NVME_APPLE``, ``CONFIG_OF_UPSTREAM_BUILD_VENDOR``, ``CONFIG_USB``, ``CONFIG_USB_XHCI``, ``CONFIG_USB_DWC3``, ``CONFIG_USB_KEYBOARD``, and video options
      - as ``apple_m1_defconfig``
-     - Hardware baseline unchanged
+     - Hardware and USB HID baseline unchanged; USB mass storage remains explicitly disabled above
    * - ``CONFIG_SHA256``, ``CONFIG_CRC32C``
      - ``y``
      - Required by the BCR tag and CRC
@@ -1702,7 +1944,7 @@ Future defconfig ``configs/apple_omarchy_release_defconfig`` (absent, NI-01) and
      - ``y``
      - Requires the generated allowlist to equal the resolved dispatch inventory; any enabled command outside the diagnostic set fails the build/design gate
 
-Enabled boot devices in release: the Apple NVMe namespace holding the ESP, resolved by UUID. Enabled boot methods: none other than ``omarchy release``. Recovery path: the PINNED recovery slot, verified against the same manifest rules. Console policy: reachable only through the keyed stop string or HALT, and every console action is labeled untrusted. Deterministic failure behavior: every failure ends in exactly one of launch-of-a-verified-slot, launch-of-verified-recovery, or HALT with a printed code; there is no path from any failure to a generic scan, removable medium, network source, alternate configuration file, or direct kernel image, and no diagnostic action can write PENDING, ACCEPTED, FAILED, or a last-known-good change.
+Enabled boot devices in release: the Apple NVMe namespace holding the ESP, resolved by UUID. Enabled boot methods: the ``omarchy release`` state machine. Recovery path: the PINNED recovery slot, verified against the same manifest rules. Console policy: reachable only through the keyed stop string, and every console action is labeled untrusted. Each failure selects exactly one row of the failure matrix and therefore one terminal action; no failure reaches a generic scan, removable medium, network source, alternate configuration file, or direct kernel image. No diagnostic action can write PENDING, ACCEPTED, FAILED, or a last-known-good change.
 
 Provenance and artifact roles
 -----------------------------
@@ -1784,7 +2026,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - document, content, and payload digests
      - owner-authorized F-03 envelope/context
      - cohort, issued-at, expiry, replay
-     - ``BOOT_PROVENANCE_FAILURE`` at ``predecessor.interface`` during entry; ``REJECT/HALT``
+     - ``BOOT_PROVENANCE_FAILURE`` at ``predecessor.interface`` during entry; ``REJECT``
      - BLK-10 and F-03
    * - source tree/archive identity
      - F-04 builder
@@ -1793,7 +2035,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - source content digest, document digest, and payload digest
      - F-04 builder binding and signing context
      - per candidate; commit/archive identity and expiry
-     - ``BOOT_PROVENANCE_FAILURE`` at ``manifest.components.boot_stack.source`` during source admission; ``REJECT/HALT``
+     - ``BOOT_PROVENANCE_FAILURE`` at ``manifest.components.boot_stack.source`` during source admission; ``REJECT``
      - BLK-18 and F-04
    * - artifact role
      - F-05 assembler
@@ -1802,7 +2044,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - artifact content digest, manifest document digest, and derived payload digest
      - F-05 manifest-release context and artifact policy
      - manifest expiry and generation; anti-replay
-     - ``BOOT_PROVENANCE_FAILURE`` at ``manifest.components.*.artifacts[]`` during artifact admission; ``REJECT/HALT``
+     - ``BOOT_PROVENANCE_FAILURE`` at ``manifest.components.*.artifacts[]`` during artifact admission; ``REJECT``
      - BLK-09 and F-05
    * - recipe/toolchain lock
      - F-04 builder
@@ -1811,7 +2053,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - content, document, artifact, and payload digests
      - F-04 builder attestation and build context
      - per candidate and two-builder comparison
-     - ``BOOT_PROVENANCE_FAILURE`` at ``provenance.recipe/toolchain`` during build admission; ``REJECT/HALT``
+     - ``BOOT_PROVENANCE_FAILURE`` at ``provenance.recipe/toolchain`` during build admission; ``REJECT``
      - BLK-16 and F-04
    * - report lock
      - F-04/B-03
@@ -1820,7 +2062,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - report content/document/payload digests
      - report signer and exact CI/build context
      - per candidate; report expiry and input-generation equality
-     - ``BOOT_PROVENANCE_FAILURE`` at ``provenance.report_lock`` during promotion; ``REJECT/HALT``
+     - ``BOOT_PROVENANCE_FAILURE`` at ``provenance.report_lock`` during promotion; ``REJECT``
      - F-04 and B-03
    * - provenance aggregate
      - F-04/F-05
@@ -1829,7 +2071,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - aggregate document/content/payload digest plus each relation digest
      - F-04/F-05 attestation and exact promotion context
      - candidate generation, expiry, and anti-replay
-     - ``BOOT_PROVENANCE_FAILURE`` at ``manifest.provenance`` during artifact admission; ``REJECT/HALT``
+     - ``BOOT_PROVENANCE_FAILURE`` at ``manifest.provenance`` during artifact admission; ``REJECT``
      - BLK-16, BLK-18, F-04, and F-05
    * - device-installation binding
      - F-02/F-03 authority
@@ -1838,7 +2080,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - binding document/content/payload digest and floor receipt digest
      - F-03 device authority/context
      - monotonic floor, issued-at, expiry, replay
-     - ``BOOT_DEVICE_BINDING_FAILURE`` at ``storage.parent_relation`` during device binding; ``HOLD/HALT``
+     - ``BOOT_DEVICE_BINDING_FAILURE`` at ``storage.parent_relation`` during device binding; ``HOLD``
      - BLK-19
    * - F-07 promotion
      - F-07 promotion terminal
@@ -1847,7 +2089,7 @@ Every predecessor interface, source identity, artifact role, recipe, toolchain, 
      - receipt document/content/payload digest and manifest derived payload digest
      - F-07 owner-authorized signer and promotion context
      - issued-at, expiry, generation, lineage, replay reservation
-     - ``BOOT_PROMOTION_FAILURE`` at ``manifest.payload.promotion_receipt`` during promotion admission; ``REJECT/HALT``
+     - ``BOOT_PROMOTION_FAILURE`` at ``manifest.payload.promotion_receipt`` during promotion admission; ``REJECT``
      - BLK-20 and F-07
 
 Dependency and handoff matrix
@@ -1892,7 +2134,7 @@ Each row names the producer, the consumer, the artifact and how its digest is bo
      - ``Trusted<TrustContext>`` bundle with ``manifest-release``, ``boot-runtime``, device-binding, floor, and F-07 receipt authority bindings embedded in the U-Boot image (BLK-05)
      - ``revocation_epoch`` and binding expiry under BLK-06
      - Two roles only
-     - ``TRUST_FAILURE``; no slot verifies; recovery or HALT
+     - ``BINDING_INTEGRITY_FAILURE`` at ``contract.authority_lock`` during ratification; no slot verifies
      - F-03
      - B-04 release profile gate
    * - DEP-04
@@ -1919,7 +2161,7 @@ Each row names the producer, the consumer, the artifact and how its digest is bo
      - Immutable ``platform-manifest/v1`` per slot with complete projection equality, embedded F-07 promotion receipt, generated GRUB configuration, hostile cross-repository fixtures, artifact IDs (BLK-09)
      - derived payload digest equality at every boot
      - One board target set
-     - T-08 or T-03 refusal
+     - ``BOOT_PROVENANCE_FAILURE`` at ``manifest.provenance_relation``; ``REJECT``; ``TA-REJECT-OBJECT``
      - F-05
      - B-04 implementation admission
    * - DEP-07
@@ -2149,7 +2391,7 @@ The NI and BLK rows above are the detailed consumer contracts; this compact inde
 Hostile fixtures
 ----------------
 
-Every fixture is a single mutation against an otherwise accepted state. The expected result is the stable ``(code, path, phase, result)`` tuple, the decision, and the component that must reject. These fixtures are required test content; none has run (NI-05).
+Each row is one reproducible fixture with one stable ``(code, path, phase, result)`` tuple, one terminal action, and one rejecting component. HF-01 through HF-51 and HF-63 through HF-75 contain one mutation against an accepted state. HF-17 and HF-52 through HF-62 are the twelve named power-cut fixtures. For a power-cut row, the tuple is the injected durable-commit observation and the final column is the interrupted run's mandatory ``NO_LAUNCH`` state; the next-boot authority is the single repair decision in the corresponding CP-01 through CP-12 row. HF-76 through HF-79 are explicit simultaneous-fault fixtures; their precedence is defined by the total matrix order. No fixture has an expected code set, result set, action set, delegated case, or alternative expected outcome. These fixtures are required test content; none has run (NI-05).
 
 .. list-table::
    :header-rows: 1
@@ -2158,211 +2400,323 @@ Every fixture is a single mutation against an otherwise accepted state. The expe
    * - ID
      - Fixture
      - Mutation
-     - Expected result
+     - Expected tuple; action; terminal
    * - HF-01
      - ``envelope-replay``
-     - Present a previously accepted mark envelope byte-for-byte on a later boot
-     - SM-09 ``BOOT_COUNTER_FAILURE``; U-Boot; hold
+     - Present one previously accepted mark envelope byte-for-byte on a later boot
+     - ``(BOOT_COUNTER_FAILURE, atomic_record.counter, freshness, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-02
      - ``envelope-transplant``
-     - Move a valid mark from another board's control set into this BSM
-     - SM-08 or SM-19; U-Boot; hold
+     - Move one valid mark container from another board's control set into this BSM
+     - ``(BOOT_DEVICE_BINDING_FAILURE, storage.device_installation_binding, device-binding, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-03
      - ``typed-digest-substitution``
-     - Replace ``manifest_digest`` in the mark with a ``document_id`` digest or a different valid manifest's digest
-     - SM-08 ``BOOT_CONTEXT_MISMATCH``; U-Boot
+     - Replace the mark's ``manifest_digest`` with one document-ID digest
+     - ``(BOOT_CONTEXT_MISMATCH, success_mark.binding_tuple, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-04
      - ``wrong-board``
-     - Mark ``board_id`` for a sibling board
-     - SM-08; U-Boot
+     - Set the mark's ``board_id`` to one sibling board
+     - ``(BOOT_CONTEXT_MISMATCH, success_mark.binding_tuple, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-05
      - ``wrong-manifest``
-     - Mark bound to the last-known-good manifest while the pending slot carries a new one
-     - SM-08; U-Boot
+     - Bind the mark to the current last-known-good manifest
+     - ``(BOOT_CONTEXT_MISMATCH, success_mark.binding_tuple, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-06
      - ``wrong-slot``
-     - Mark ``slot_id = slot-a`` while ``slot-b`` is pending
-     - SM-08; U-Boot
+     - Set ``slot_id = slot-a`` while ``slot-b`` is pending
+     - ``(BOOT_CONTEXT_MISMATCH, success_mark.binding_tuple, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-07
      - ``wrong-generation``
-     - Mark ``slot_generation`` one below the descriptor
-     - SM-08; U-Boot
+     - Set ``slot_generation`` one below the descriptor
+     - ``(BOOT_CONTEXT_MISMATCH, success_mark.binding_tuple, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-08
      - ``wrong-lineage``
-     - Mark ``lineage_id`` from the tombstoned lineage
-     - SM-08; U-Boot
+     - Set ``lineage_id`` to one tombstoned lineage
+     - ``(BOOT_CONTEXT_MISMATCH, success_mark.binding_tuple, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-09
      - ``wrong-source-generation``
-     - Mark ``source_generation`` reset to 0
-     - SM-08; U-Boot
+     - Reset ``source_generation`` to 0 in the mark
+     - ``(BOOT_CONTEXT_MISMATCH, success_mark.binding_tuple, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-10
      - ``forged-mark-signature``
-     - Flip one signature byte
-     - SM-07 ``BOOT_MARKER_AUTH_FAILURE``; U-Boot
+     - Flip one mark signature byte
+     - ``(BOOT_MARKER_AUTH_FAILURE, success_mark.authentication, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-11
      - ``forged-mark-role``
-     - ``signer_role = manifest-release`` on a mark
-     - SM-07; U-Boot
+     - Set ``signer_role = manifest-release`` on one mark
+     - ``(BOOT_MARKER_AUTH_FAILURE, success_mark.authentication, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-12
      - ``missing-mark``
-     - Container CONSUMED or absent after a pending boot
-     - SM-03 or SM-01; budget continues; T-06 at the limit
+     - Set the BSM container state to CONSUMED after one pending boot
+     - ``(BOOT_MARKER_AUTH_FAILURE, success_mark.authentication, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-13
      - ``replayed-mark-generation``
-     - ``marker_generation`` equal to BCR-S12
-     - SM-10 ``EXPIRY_OR_REPLAY_FAILURE``; U-Boot
+     - Set ``marker_generation`` equal to BCR-S12
+     - ``(EXPIRY_OR_REPLAY_FAILURE, success_mark.replay_id, record-replay, REJECT)``; ``TA-REJECT-OBJECT``; no launch
    * - HF-14
      - ``counter-reset``
-     - BCR copy with ``attempt_counter`` lower than the other valid copy at a higher sequence
-     - State consistency failure; copy invalid; C2-05
+     - Set one copy's ``attempt_counter`` below its transaction counter
+     - ``(BOOT_COUNTER_FAILURE, atomic_record.counter, freshness, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-15
      - ``counter-wrap``
-     - Descriptor ``attempt_counter`` at the maximum before T-04
-     - ``BOOT_COUNTER_FAILURE``; no launch of that slot; T-06 path
+     - Set ``last_counter = UINT64_MAX`` before T-04 reservation
+     - ``(BOOT_COUNTER_FAILURE, atomic_record.counter, freshness, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-16
      - ``both-copies-corrupt``
-     - Random bytes in both partitions
-     - C2-07; no write; immutable recovery identity plus full checks or HALT
+     - Replace both BCR blocks with random bytes
+     - ``(BOOT_RECORD_DIGEST_FAILURE, bcr.record_digest, record-authentication, HALT)``; ``TA-HALT-NO-LAUNCH``; no launch
    * - HF-17
-     - ``torn-write-each-phase``
-     - Cut power at each of the eleven listed points
-     - The listed C2 or SM case, verified by the captured copies
+     - ``power-cut-cp01``
+     - Cut power before floor reservation
+     - ``(0, none, none, PASS)``; ``TA-CONTINUE``; no launch during cut
    * - HF-18
      - ``stale-copy-selection``
-     - Copy 1 valid at sequence n, copy 0 valid at sequence n+1 with a different selected slot
-     - C2-03 selects copy 0; copy 1 repaired
+     - Mark copy 0 prepared with a larger sequence while copy 1 is the previous committed record
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; no launch
    * - HF-19
      - ``concurrent-writer``
-     - Re-enter the writer from a diagnostic subcommand or a second call
-     - Code 17; no write
+     - Re-enter the writer while its in-progress flag is set
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; no launch
    * - HF-20
      - ``power-loss-before-flush``
-     - Cut after the write completes but before the flush returns
-     - Torn or missing copy per C2-11 and C2-12; never a half-committed launch
+     - Cut power during the copy 0 prepared write
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; no launch
    * - HF-21
      - ``power-loss-after-flush``
-     - Cut after the flush and read-back
-     - Committed state observed on the next boot
+     - Cut power after both committed-copy read-backs
+     - ``(0, none, none, PASS)``; ``TA-CONTINUE``; no launch during cut
    * - HF-22
      - ``malicious-removable-media``
-     - USB disk with ``/EFI/BOOT/bootaa64.efi`` and an extlinux configuration attached
-     - Not enumerated; no bootdev exists; release sequence unchanged
+     - Attach one USB disk containing ``/EFI/BOOT/bootaa64.efi``
+     - ``(0, none, none, PASS)``; ``TA-CONTINUE``; no USB boot
    * - HF-23
      - ``network-media``
-     - Network boot server on the link
-     - No network stack; no effect
+     - Expose one network boot server on the link
+     - ``(0, none, none, PASS)``; ``TA-CONTINUE``; no network boot
    * - HF-24
      - ``mutable-environment``
-     - ``/ubootefi.var``, a FAT environment file, and ``BootOrder`` pointing at another slot on the ESP
-     - Not read; ``ENV_IS_NOWHERE`` and ``EFI_VARIABLE_NO_STORE``; no effect
+     - Add one ``/ubootefi.var`` file to the ESP
+     - ``(0, none, none, PASS)``; ``TA-CONTINUE``; no environment read
    * - HF-25
      - ``grub-context-stripping``
-     - GRUB configuration invoking ``devicetree`` with a DT lacking the properties
-     - Linux consumer refuses; no mark; E-01 mutated run
+     - Remove the three context properties before the Linux handoff
+     - ``(TRUST_BOUNDARY_FAILURE, trust.input, ratification, HOLD)``; ``TA-HOLD-NO-WRITE``; no mark
    * - HF-26
      - ``grub-context-mutation``
-     - Modify one byte of ``omarchy,boot-context`` before the kernel
-     - Linux consumer SHA-256 mismatch; no mark
+     - Change one byte of ``omarchy,boot-context`` before Linux
+     - ``(TRUST_BOUNDARY_FAILURE, trust.input, ratification, HOLD)``; ``TA-HOLD-NO-WRITE``; no mark
    * - HF-27
      - ``direct-kernel-bypass``
-     - Attempt ``booti`` or ``bootefi`` from the console, or a kernel EFI stub placed as the GRUB artifact
-     - Commands absent; artifact digest mismatch T-08
+     - Enable one direct-kernel command in the resolved release dispatch
+     - ``(RELEASE_COMMAND_CLOSURE_FAILURE, release_command_allowlist.enabled_command, release-profile, BUILD_FAIL)``; ``TA-BUILD-FAIL``; no release image
    * - HF-28
      - ``rollback-recursion``
-     - After T-06, stage the identical manifest again in the FAILED slot
-     - T-03 refused because the derived payload digest equals the FAILED descriptor
+     - Stage one identical manifest after T-06 in the FAILED slot
+     - ``(DOCUMENT_ID_REUSE, atomic_record.permanent_tombstones.reuse, state-validation, REJECT)``; ``TA-REJECT-OBJECT``; no staging
    * - HF-29
      - ``missing-last-known-good``
-     - PENDING slot exhausts its budget with ``last_known_good_slot = 0``
-     - T-06 selects only the immutable recovery identity after full checks; otherwise HALT
+     - Exhaust a pending slot with ``last_known_good_slot = 0`` and a valid pinned recovery descriptor
+     - ``(0, none, none, PASS)``; ``TA-CONTINUE``; launch pinned recovery
    * - HF-30
      - ``alternate-stable-writer``
-     - A manifest with ``channel = stable`` signed by a valid key whose binding lacks the ``manifest-release`` role, or a manifest without an F-07 promotion receipt
-     - ``BOOT_PROMOTION_FAILURE`` at ``manifest.payload.promotion_receipt``; slot never PENDING; F-07 remains the only stable writer
+     - Present one stable manifest without a valid manifest-release binding
+     - ``(BOOT_PROMOTION_FAILURE, manifest.promotion_receipt, promotion-admission, REJECT)``; ``TA-REJECT-OBJECT``; no PENDING write
    * - HF-31
      - ``unkeyed-accepted-record``
-     - Unkeyed record claiming ACCEPTED with a non-zero last-known-good slot
-     - Copy invalid; C2-05 or C2-07; the OS cannot express acceptance
+     - Set ACCEPTED in an auth-algorithm-1 record
+     - ``(BOOT_RECORD_SOURCE_FAILURE, bcr.source_record, record-authentication, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-32
      - ``lkg-overwritten-in-place``
-     - Replace the last-known-good slot's manifest with a different signed manifest
-     - T-09 code 19; recovery; the slot is never re-trialed silently
+     - Replace the LKG manifest with one different trusted manifest
+     - ``(OMARCHY_LKG_INVALID, slot.last_known_good, state-validation, HALT)``; ``TA-HALT-NO-LAUNCH``; no slot retry
    * - HF-33
      - ``recovery-pin-mismatch``
-     - Recovery slot manifest differs from the immutable compiled or independently authenticated identity/digest
-     - ``BOOT_RECOVERY_IDENTITY_FAILURE``; full checks fail; HALT
+     - Replace the pinned recovery manifest identity
+     - ``(BOOT_RECOVERY_IDENTITY_FAILURE, recovery.immutable_identity, recovery-admission, HALT)``; ``TA-HALT-NO-LAUNCH``; no recovery launch
    * - HF-34
      - ``full-disk-rollback``
-     - Restore an older complete authenticated disk snapshot after a newer counter reservation or acceptance
-     - ``BOOT_COUNTER_FAILURE`` at ``atomic_record.last_counter`` during freshness; ``HOLD/HALT``; no launch
+     - Restore an older disk snapshot after a newer counter reservation
+     - ``(BOOT_COUNTER_FAILURE, atomic_record.counter, freshness, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
    * - HF-35
      - ``full-disk-clone``
-     - Clone the complete BCR/BSM/GPT tuple to another device of the same board class
-     - ``BOOT_DEVICE_BINDING_FAILURE`` at ``storage.device_installation_binding`` during device binding; ``HOLD/HALT``; no slot read
+     - Clone the complete control tuple to another device
+     - ``(BOOT_DEVICE_BINDING_FAILURE, storage.device_installation_binding, device-binding, HOLD)``; ``TA-HOLD-NO-WRITE``; no slot read
    * - HF-36
      - ``manifest-projection-mismatch``
-     - Alter only top-level ``artifacts``, ``package_set``, ``compatibility``, ``firmware_schema``, or ``rollback`` while component projections remain signed
-     - ``BOOT_PROJECTION_FAILURE`` at ``manifest.payload.<projection>`` during generated F-02 validation; ``REJECT/HALT``
+     - Change one top-level projection while retaining the signed component projection
+     - ``(BOOT_PROJECTION_FAILURE, manifest.projection, manifest-projection, REJECT)``; ``TA-REJECT-OBJECT``; no trusted manifest
    * - HF-37
      - ``derived-digest-wire-injection``
-     - Add a ninth ``payload_digest`` property to the envelope
-     - ``PARSE_SCHEMA_FAILURE`` at ``envelope.payload_digest`` during strict parse; ``REJECT/HALT``; no derived value is read
+     - Add one ``payload_digest`` property to the envelope
+     - ``(PARSE_SCHEMA_FAILURE, envelope.schema, manifest-parse, REJECT)``; ``TA-REJECT-OBJECT``; no derived value read
    * - HF-38
      - ``derived-digest-mismatch``
-     - Retain an old BCR-S08 while changing the canonical payload, or inject a stale external digest into the binding
-     - ``BOOT_RECORD_DIGEST_FAILURE`` at ``manifest.derived_payload_digest`` during digest binding; ``REJECT/HALT``
+     - Retain an old BCR-S08 after changing the canonical manifest payload
+     - ``(CROSS_DOCUMENT_MISMATCH, manifest.cross_document, signature-context, REJECT)``; ``TA-REJECT-OBJECT``; no launch
    * - HF-39
      - ``invalid-check-class``
-     - Use a signed check ID with a class outside the manifest-declared allowed class set
-     - ``BOOT_PROFILE_FAILURE`` at ``boot_health.checks[].class`` during core admission; ``HOLD``; no T-05
+     - Set one signed check class outside the allowed profile set
+     - ``(BOOT_PROFILE_FAILURE, boot_health.profile, profile-admission, REJECT)``; ``TA-REJECT-OBJECT``; no trusted core
    * - HF-40
      - ``invalid-measurement``
-     - Use a wrong measurement name/unit or a value outside the declared bound
-     - ``BOOT_PROFILE_FAILURE`` at ``boot_health.checks[].measurement`` during core admission; ``HOLD``; no mark acceptance
+     - Set one measurement unit outside the declared profile
+     - ``(BOOT_PROFILE_FAILURE, boot_health.profile, profile-admission, REJECT)``; ``TA-REJECT-OBJECT``; no mark acceptance
    * - HF-41
      - ``profile-limit-or-source-mismatch``
-     - Change ``failure_limit``, source evidence/record, profile digest, or exact check order while retaining passing statuses
-     - ``BOOT_PROFILE_FAILURE`` at ``boot_health.profile.<field>`` during core admission; ``HOLD``; no trusted core
+     - Change one ``failure_limit`` while retaining passing statuses
+     - ``(BOOT_PROFILE_FAILURE, boot_health.profile, profile-admission, REJECT)``; ``TA-REJECT-OBJECT``; no trusted core
    * - HF-42
      - ``bcr-loss``
-     - Erase or corrupt both BCR copies so no committed record or floor-bound state is available
-     - ``BOOT_RECORD_SOURCE_FAILURE`` at ``bcr.atomic_record`` during copy selection; ``HOLD/HALT``; immutable recovery only
+     - Erase both BCR copies while retaining a committed floor receipt
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; no write
    * - HF-43
      - ``missing-f07-receipt``
-     - Present a correctly signed stable-channel manifest without the F-07 promotion receipt
-     - ``BOOT_PROMOTION_FAILURE`` at ``manifest.payload.promotion_receipt`` during manifest admission; ``REJECT/HALT``; no PENDING
+     - Remove the promotion receipt from one stable manifest
+     - ``(BOOT_PROMOTION_FAILURE, manifest.promotion_receipt, promotion-admission, REJECT)``; ``TA-REJECT-OBJECT``; no PENDING write
    * - HF-44
      - ``inherited-command``
-     - Leave inherited ``font`` or ``smbios`` dispatch enabled, or introduce a hidden/alias/dynamic command outside the diagnostic set
-     - ``RELEASE_COMMAND_CLOSURE_FAILURE`` at ``release_command_allowlist.enabled_command`` during the build gate; ``REJECT/HALT``; no release image
+     - Leave one inherited ``font`` dispatch object enabled
+     - ``(RELEASE_COMMAND_CLOSURE_FAILURE, release_command_allowlist.enabled_command, release-profile, BUILD_FAIL)``; ``TA-BUILD-FAIL``; no release image
    * - HF-45
      - ``selected-state-cartesian``
-     - Exercise every one of the 2,500 selected-slot, descriptor, LKG, other-slot, and recovery-state combinations
-     - ``BOOT_STATE_CONSISTENCY_FAILURE`` at ``atomic_record.selected_slot`` during state validation for every illegal tuple; ``HOLD/HALT``; no write
+     - Set ``selected_slot = slot-a`` while its descriptor state is EMPTY
+     - ``(BOOT_STATE_CONSISTENCY_FAILURE, atomic_record.state, state-validation, HOLD)``; ``TA-HOLD-NO-WRITE``; no write
    * - HF-46
      - ``divergent-recovery``
-     - Make equal-counter valid BCR copies disagree on the recovery identity, policy, or selected state
-     - ``OMARCHY_BCR_DIVERGENT`` at ``bcr.copy[0|1]`` during copy selection; no write and no record selection; immutable recovery only or HALT
+     - Change the recovery identity in one equal-counter committed copy
+     - ``(OMARCHY_BCR_DIVERGENT, bcr.copy_divergence, record-authentication, HALT)``; ``TA-HALT-NO-LAUNCH``; no record selection
    * - HF-47
      - ``cross-disk-tuple``
-     - Put a valid ESP on one disk and valid BCR/BSM records on another disk with individually matching local GUIDs
-     - ``BOOT_STORAGE_IDENTITY_FAILURE`` at ``storage.parent_relation`` during physical resolution; ``HOLD/HALT``; no slot read
+     - Place the ESP on one disk and BCR records on another disk
+     - ``(BOOT_STORAGE_IDENTITY_FAILURE, storage.esp.matches, physical-resolution, HOLD)``; ``TA-HOLD-NO-WRITE``; no slot read
    * - HF-48
      - ``duplicate-esp-uuid``
-     - Put the exact ESP UUID on two partitions or two NVMe namespaces with different slot content
-     - ``BOOT_STORAGE_IDENTITY_FAILURE`` at ``storage.esp.matches`` during exact-one resolution; ``HOLD/HALT``; enumeration order is ignored
+     - Give two partitions the exact ESP UUID
+     - ``(BOOT_STORAGE_IDENTITY_FAILURE, storage.esp.matches, physical-resolution, HOLD)``; ``TA-HOLD-NO-WRITE``; no enumeration authority
    * - HF-49
      - ``dual-candidate``
-     - Place two distinct F-07-authorized eligible stable candidates in the two non-current slots
-     - ``BOOT_CANDIDATE_CONFLICT`` at ``candidate_set`` during stage detection; ``HOLD/HALT``; no PENDING write
+     - Place two distinct F-07-authorized candidates in the non-current slots
+     - ``(BOOT_CANDIDATE_CONFLICT, candidate_set, candidate-detection, HOLD)``; ``TA-HOLD-NO-WRITE``; no PENDING write
    * - HF-50
      - ``document-id-reuse``
-     - Re-stage a prior document ID with a different payload digest after its descriptor was recycled
-     - ``DOCUMENT_ID_REUSE`` at ``atomic_record.permanent_tombstones`` during lineage admission; ``REJECT/HALT``; no staging
+     - Stage one prior document ID with a different payload digest
+     - ``(DOCUMENT_ID_REUSE, atomic_record.permanent_tombstones.reuse, state-validation, REJECT)``; ``TA-REJECT-OBJECT``; no staging
    * - HF-51
      - ``document-id-fork``
-     - Present two generations with one document ID and divergent payload digests in the durable history
-     - ``DOCUMENT_ID_FORK`` at ``atomic_record.permanent_tombstones`` during lineage admission; ``REJECT/HALT``; no staging
+     - Present two durable payload digests for one document ID
+     - ``(DOCUMENT_ID_FORK, atomic_record.permanent_tombstones.fork, state-validation, REJECT)``; ``TA-REJECT-OBJECT``; no staging
+   * - HF-52
+     - ``power-cut-cp02``
+     - Cut power after floor reservation before copy 0 prepared write
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; previous record authority
+   * - HF-53
+     - ``power-cut-cp03``
+     - Cut power during copy 0 prepared write
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; previous record authority
+   * - HF-54
+     - ``power-cut-cp04``
+     - Cut power during atomic floor commit
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; previous record authority
+   * - HF-55
+     - ``power-cut-cp05``
+     - Cut power after floor commit before copy 1 prepared write
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; resume keyed transaction
+   * - HF-56
+     - ``power-cut-cp06``
+     - Cut power during copy 1 prepared write
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; resume keyed transaction
+   * - HF-57
+     - ``power-cut-cp07``
+     - Cut power after copy 1 prepared read-back before copy 0 committed marker
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; resume keyed transaction
+   * - HF-58
+     - ``power-cut-cp08``
+     - Cut power during copy 0 committed marker write
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; resume keyed transaction
+   * - HF-59
+     - ``power-cut-cp09``
+     - Cut power during copy 1 committed marker write
+     - ``(BOOT_RECORD_COMMIT_FAILURE, bcr.commit.transaction, durable-commit, HALT)``; ``TA-HALT-NO-LAUNCH``; repair from copy 0
+   * - HF-60
+     - ``power-cut-cp10``
+     - Cut power after both committed-copy read-backs before BootContext installation
+     - ``(0, none, none, PASS)``; ``TA-CONTINUE``; no launch during cut
+   * - HF-61
+     - ``power-cut-cp11``
+     - Cut power during BSM core/mark/header publication
+     - ``(BOOT_MARKER_COMMIT_FAILURE, bsm.commit.readback, durable-commit, HOLD)``; ``TA-HOLD-NO-WRITE``; no mark
+   * - HF-62
+     - ``power-cut-cp12``
+     - Cut power during BSM clear after T-05 BCR commit
+     - ``(BOOT_MARKER_COMMIT_FAILURE, bsm.commit.readback, durable-commit, HOLD)``; ``TA-HOLD-NO-WRITE``; accepted record remains
+   * - HF-63
+     - ``unknown-bsm-enum``
+     - Set ``container_state = 3`` in the BSM header
+     - ``(BOOT_MARKER_AUTH_FAILURE, success_mark.authentication, success-mark, HOLD)``; ``TA-HOLD-NO-WRITE``; no mark
+   * - HF-64
+     - ``duplicate-artifact-role``
+     - Add a second artifact with the same manifest role
+     - ``(BOOT_ARTIFACT_ROLE_FAILURE, manifest.artifact_role, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no trusted artifact
+   * - HF-65
+     - ``artifact-slash``
+     - Set one ID to ``artifact:boot/kernel``
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-66
+     - ``artifact-backslash``
+     - Set one ID to ``artifact:boot\\kernel``
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-67
+     - ``artifact-nul``
+     - Insert one NUL byte into an ID
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-68
+     - ``artifact-dot``
+     - Set the name component to ``.``
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-69
+     - ``artifact-dotdot``
+     - Set the name component to ``..``
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-70
+     - ``artifact-unicode``
+     - Insert one non-ASCII Unicode byte sequence into an ID
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-71
+     - ``artifact-uppercase``
+     - Replace one lowercase ASCII byte with uppercase ASCII
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-72
+     - ``artifact-symlink``
+     - Make the resolved artifact directory entry a symlink
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no file read
+   * - HF-73
+     - ``artifact-device``
+     - Make the resolved artifact directory entry a device node
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no file read
+   * - HF-74
+     - ``artifact-overlength``
+     - Set the complete ID length to 74 bytes
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-75
+     - ``artifact-depth``
+     - Set the name to contain one directory separator after the prefix
+     - ``(BOOT_ARTIFACT_ID_FAILURE, manifest.artifact_id, artifact-admission, REJECT)``; ``TA-REJECT-OBJECT``; no filesystem access
+   * - HF-76
+     - ``simultaneous-storage-record``
+     - Combine a wrong board identity with one corrupt BCR copy
+     - ``(OMARCHY_BOARD_MISMATCH, board_registry.match, device-binding, HALT)``; ``TA-HALT-NO-LAUNCH``; no storage read
+   * - HF-77
+     - ``simultaneous-counter-mark``
+     - Combine ``last_counter = UINT64_MAX`` with one stale success mark
+     - ``(BOOT_COUNTER_FAILURE, atomic_record.counter, freshness, HOLD)``; ``TA-HOLD-NO-WRITE``; no launch
+   * - HF-78
+     - ``simultaneous-bcr-artifact``
+     - Combine one torn BCR copy with one wrong artifact digest
+     - ``(BOOT_RECORD_DIGEST_FAILURE, bcr.record_digest, record-authentication, HALT)``; ``TA-HALT-NO-LAUNCH``; no artifact read
+   * - HF-79
+     - ``simultaneous-promotion-artifact``
+     - Combine one missing F-07 receipt with one invalid artifact ID
+     - ``(BOOT_PROMOTION_FAILURE, manifest.promotion_receipt, promotion-admission, REJECT)``; ``TA-REJECT-OBJECT``; no staging
 
 Empirical residuals
 -------------------
@@ -2395,7 +2749,7 @@ These are NOT IMPLEMENTED gates observed at the current tip. They are never desi
      - No Omarchy command, Kconfig symbol, schema, binding, state writer, or validator exists in this tree; ``cmd/omarchy.c``, ``boot/omarchy_slot.c``, ``schemas/platform-manifest.json``, and ``schemas/boot-health.json`` are absent, and the last two must never exist here because schemas are published only by ``omarchy-apple-platform``
      - B-04 U-Boot consumer
      - ``cmd/omarchy.c`` and ``boot/omarchy_slot.c``
-     - ``TRUST_BOUNDARY_FAILURE``
+     - ``BINDING_INTEGRITY_FAILURE``
      - generated boot-binding output digest
      - pinned U-Boot build and binding constructor test
      - B-04
@@ -2419,9 +2773,9 @@ These are NOT IMPLEMENTED gates observed at the current tip. They are never desi
      - B-04
      - B-04 implementation promotion
    * - NI-05
-     - No hostile fixture in `Hostile fixtures`_ (HF-01 through HF-51) has been executed
+     - No hostile fixture in `Hostile fixtures`_ (HF-01 through HF-79) has been executed
      - B-04 hostile-fixture gate
-     - HF-01 through HF-51 fixture inventory
+     - HF-01 through HF-79 fixture inventory
      - first row-specific code in `Failure code/path/phase/result matrix`_
      - hostile-fixture manifest and result digest
      - generated hostile corpus runner; require 0 unobserved rows
@@ -2440,7 +2794,7 @@ These are NOT IMPLEMENTED gates observed at the current tip. They are never desi
      - No Ed25519 verifier and no JSON or RFC 8785 canonicalizer exists under ``lib/``; the boot binding must supply them within the bounded limits
      - generated F-02 binding
      - strict parser, JCS, Ed25519, and ``Trusted<T>`` constructors
-     - ``TRUST_BOUNDARY_FAILURE``
+     - ``BINDING_INTEGRITY_FAILURE``
      - ``generated-output.lock`` boot-binding digest
      - binding unit corpus plus bounded-memory build
      - B-04 with DEP-02
@@ -2512,7 +2866,7 @@ These are NOT IMPLEMENTED gates observed at the current tip. They are never desi
 BLOCKED external constants
 --------------------------
 
-Each constant is owned outside this lane. Until ratified, U-Boot has no value for it, cannot be built for release, and B-03/B-04 admission is BLOCKED. No value is guessed here. The rows below are also the BLK dependency/consumer rows: each BLK ID appears exactly once with its consumer, consumer API/path, rejection code, handoff artifact/digest, verification command, owner, and due-before gate. Missing or duplicate mapping blocks release and F-07 promotion.
+Each constant is owned outside this lane. Until ratified, U-Boot has no value for it, cannot be built for release, and B-03/B-04 admission is BLOCKED. No value is guessed here. The rows below are also the BLK dependency/consumer rows: each BLK ID appears exactly once with its consumer, consumer API/path, rejection code, handoff artifact/digest, verification command, owner, and due-before gate. The rejection code in a BLK row applies only after the owner-supplied value has passed the authority lock; a missing or mismatched owner record, schema record, lock field, or generated binding always uses ``BINDING_INTEGRITY_FAILURE`` at ``contract.authority_lock`` during ratification. Missing or duplicate mapping blocks release and F-07 promotion.
 
 .. list-table::
    :header-rows: 1
@@ -2546,10 +2900,10 @@ Each constant is owned outside this lane. Until ratified, U-Boot has no value fo
      - F-02 with I-03
      - B-04 implementation admission
    * - BLK-03
-     - ``OMARCHY_BCR_AUTH_KEY`` source, provisioning, and rotation; the key must be unavailable to the Linux OS at runtime. No absence of a key source permits algorithm 1 in release; it is a HOLD/HALT threat-model decision
+     - ``OMARCHY_BCR_AUTH_KEY`` source, provisioning, and rotation; the key must be unavailable to the Linux OS at runtime. No absence of a key source permits algorithm 1 in release; it is a HOLD threat-model decision
      - BCR verifier/writer
      - ``bcr.auth_tag`` and F-03 key binding
-     - ``TRUST_BOUNDARY_FAILURE``
+     - ``BINDING_INTEGRITY_FAILURE``
      - key-custody and trust-context digest
      - key-custody review and authenticated-record fixtures
      - F-03 with the human predecessor owner
@@ -2567,7 +2921,7 @@ Each constant is owned outside this lane. Until ratified, U-Boot has no value fo
      - Embedded ``Trusted<TrustContext>`` bundle format, offline expiry handling, and rotation procedure for a firmware consumer without network
      - all authenticated U-Boot consumers
      - ``Trusted<TrustContext>`` constructor
-     - ``TRUST_BOUNDARY_FAILURE``
+     - ``BINDING_INTEGRITY_FAILURE``
      - trust-bundle document/content/payload digest
      - trust-context expiry, revocation, and role tests
      - F-03
@@ -2585,7 +2939,7 @@ Each constant is owned outside this lane. Until ratified, U-Boot has no value fo
      - ``DocumentId`` grammar; BCR-S09 stores its SHA-256 so the record width is independent of the ruling
      - lineage validator
      - ``atomic_record.permanent_tombstones``
-     - ``DOCUMENT_ID_REUSE`` or ``DOCUMENT_ID_FORK``
+     - ``DOCUMENT_ID_REUSE``
      - canonical document-lineage digest
      - document-ID grammar and fork fixtures
      - F-02
@@ -2594,16 +2948,16 @@ Each constant is owned outside this lane. Until ratified, U-Boot has no value fo
      - ``lineage_id`` allocation rule and its exact authenticated source; no local deterministic derivation is accepted until F-02 ratifies the rule
      - lineage validator
      - ``atomic_record.lineage_id`` and tombstone history
-     - ``BOOT_COUNTER_FAILURE`` or ``DOCUMENT_ID_FORK``
+     - ``DOCUMENT_ID_FORK``
      - lineage document/content/payload digest
      - lineage allocation and reuse fixtures
      - F-02
      - B-04 implementation admission
    * - BLK-09
-     - Artifact IDs and media types for the U-Boot image, GRUB image, GRUB configuration, kernel image, initramfs, DTB set, and recovery payload
+     - Artifact IDs and media types for the U-Boot image, GRUB image, GRUB configuration, kernel image, initramfs, DTB set, and recovery payload; every imported ID must satisfy the byte grammar and every role must occur once
      - manifest/artifact consumer
      - ``manifest.components.*.artifacts[]``
-     - ``BOOT_PROVENANCE_FAILURE`` or ``OMARCHY_ARTIFACT_DIGEST_MISMATCH``
+     - ``BOOT_ARTIFACT_ID_FAILURE``
      - artifact ID, content, document, and derived payload digests
      - artifact-role and digest fixture suite
      - F-05 with F-04
@@ -2693,7 +3047,7 @@ Each constant is owned outside this lane. Until ratified, U-Boot has no value fo
      - Independent monotonic per-device/installation floor and authenticated current-device/installation identity, including exact preimages and advance/reservation authority
      - freshness/device binder
      - ``storage.device_installation_binding`` and ``atomic_record.last_counter``
-     - ``BOOT_DEVICE_BINDING_FAILURE`` or ``BOOT_COUNTER_FAILURE``
+     - ``BOOT_DEVICE_BINDING_FAILURE``
      - binding document/content/payload digest and floor receipt digest
      - floor rollback, clone, reservation, and power-loss fixtures
      - F-02/F-03 with I-03
@@ -2713,7 +3067,7 @@ Acceptance and power-loss test plan
 
 The first implementation extends the existing surfaces rather than claiming they cover the contract: ``test/dm/fwu_mdata.c`` for the pattern of two-copy metadata tests, ``test/py/tests/test_gpt.py`` for identity-tuple resolution and rejection of an ambiguous layout, ``test/boot/bootflow.c`` only to prove that no bootflow exists in the release profile, ``test/py/tests/test_efi_bootmgr.py`` only to prove that ``BootOrder`` cannot select anything, and ``test/py/tests/test_distro.py`` as a console-interaction reference. New sandbox tests use a disposable host-bound disk image and inject a failure at every durable write boundary; after every simulated reset the harness captures both BCR copies, the BSM header, the slot directory listing, the selected slot, the attempt counter, and the decision string.
 
-The B-04 implementation gate is: all 14 C2 rows, all 23 SM rows, all 12 T rows, and all 51 HF rows have deterministic sandbox results; E-01 passes; the release ``.config`` resolves on a pinned builder with the two-builder comparison and exhaustive command inventory; every NI/BLK row has exactly one consumer mapping; and all 20 BLK constants are ratified. The physical gate additionally requires the Q-04 rows on disposable qualified hardware with rehearsed outer recovery. A green sandbox run, a U-Boot prompt, a recognized SoC, or a booting desktop is never qualification evidence.
+The B-04 implementation gate is: all 14 C2 rows, all 23 SM rows, all 12 T rows, and all 79 HF rows have deterministic sandbox results; E-01 passes; the release ``.config`` resolves on a pinned builder with the two-builder comparison and exhaustive command inventory; every NI/BLK row has exactly one consumer mapping; and all 20 BLK constants are ratified. The physical gate additionally requires the Q-04 rows on disposable qualified hardware with rehearsed outer recovery. A green sandbox run, a U-Boot prompt, a recognized SoC, or a booting desktop is never qualification evidence.
 
 Closing statement
 -----------------
