@@ -1,3 +1,14 @@
+Omarchy Silicon downstream notice
+=================================
+
+This repository is an Omarchy Silicon downstream development tree for U-Boot. The target scope is all present and future Apple M-series systems, including every materially distinct board or hardware profile. This work is in active development; no board is currently supported or qualified, and there is no supported Omarchy Silicon release.
+
+The inherited U-Boot README and contribution instructions below are retained as upstream reference material. Their board status, release information, and contribution routes apply to upstream U-Boot, not to Omarchy Silicon. They are not installation or support guidance for this downstream.
+
+For Omarchy Silicon downstream work, use the [central Issues](https://github.com/omarchy-silicon/omarchy-apple-platform/issues) and [central Discussions](https://github.com/omarchy-silicon/omarchy-apple-platform/discussions). Report vulnerabilities through the [private security advisory channel](https://github.com/omarchy-silicon/omarchy-apple-platform/security/advisories/new). Patches intended for upstream U-Boot should follow the upstream mailing-list process described below.
+
+The inherited U-Boot attribution and license header are preserved below.
+
  # SPDX-License-Identifier: GPL-2.0+
 #
 # (C) Copyright 2000 - 2013
